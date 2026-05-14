@@ -273,6 +273,17 @@ input:checked+.toggle-slider:before{transform:translateX(16px)}
 .search-inp{background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:7px 11px;font-family:var(--fn);font-size:12px;color:var(--ink);outline:none;transition:border .1s}
 .search-inp:focus{border-color:var(--ink3)}
 
+/* ── Delivery status pills ── */
+.del-pending{background:var(--a-bg);color:var(--a);border:1px solid var(--a-bd,#e8d890)}
+.del-camino{background:#fff8e8;color:#a07000;border:1px solid #f0d860}
+.del-done{background:var(--g-bg);color:var(--g);border:1px solid var(--g-bd,#c0e8c8)}
+.del-cancelled{background:var(--bg);color:var(--ink3);border:1px solid var(--line)}
+.ent-filter.active{background:var(--ink);color:#fff;border-color:var(--ink)}
+
+/* ── iPhone accessories table ── */
+.iacc-low-cases td:nth-child(2){color:var(--r);font-weight:700}
+.iacc-low-glass td:nth-child(4){color:var(--r);font-weight:700}
+
 /* ── Mobile responsive ── */
 @media (max-width: 768px) {
   .shell{grid-template-columns:44px 1fr}
@@ -492,7 +503,7 @@ input:checked+.toggle-slider:before{transform:translateX(16px)}
     <div class="sn-badge" id="acc-badge" style="display:none"></div>
   </div>
   <div class="sn" onclick="go('entregas',this)" id="sn-ent">
-    ↓<div class="sn-tip">Entregas del día</div>
+    ↓<div class="sn-tip">Entregas pendientes</div>
     <div class="sn-badge" id="ent-badge" style="display:none"></div>
   </div>
   <div class="sn" onclick="go('contenido',this)">✦<div class="sn-tip">¿Qué posteo hoy?</div></div>
@@ -676,9 +687,11 @@ input:checked+.toggle-slider:before{transform:translateX(16px)}
     <!-- ══ ACCESORIOS ══ -->
     <div class="page" id="pg-accesorios">
       <div class="sec"><h2>Accesorios</h2></div>
+
+      <!-- General accessories -->
       <div class="acc-cards" id="acc-cards"></div>
-      <div class="sec" style="margin-top:16px"><h2 style="font-size:13px">Registrar movimiento</h2></div>
-      <div class="tbl-outer" style="padding:16px;max-width:500px">
+      <div class="sec" style="margin-top:4px"><h2 style="font-size:13px">Movimiento rápido (generales)</h2></div>
+      <div class="tbl-outer" style="padding:16px;max-width:500px;margin-bottom:24px">
         <div class="fgrid fg2" style="margin-bottom:12px;gap:10px">
           <div class="field"><label class="inp-label">Accesorio</label>
             <select class="inp" id="acc-tipo"><option>Fundas iPhone</option><option>Vidrios templados</option><option>Cables USB-C</option><option>Adaptadores 20W</option></select></div>
@@ -688,6 +701,25 @@ input:checked+.toggle-slider:before{transform:translateX(16px)}
           <div class="field"><label class="inp-label">Costo u. (USD)</label><input class="inp" type="number" id="acc-cost" step="0.5" placeholder="0"></div>
         </div>
         <button class="btn btn-ink btn-sm" onclick="saveAccMov()">Guardar</button>
+      </div>
+
+      <!-- iPhone accessories by model -->
+      <div class="sec">
+        <div><h2 style="font-size:14px">📱 Fundas y vidrios por modelo iPhone</h2>
+          <div style="font-size:11px;color:var(--ink3);margin-top:2px">Stock específico por modelo. Se descuenta automáticamente al marcar entrega.</div>
+        </div>
+        <button class="btn btn-ink btn-sm" onclick="openIPhoneAccDrawer()">+ Movimiento</button>
+      </div>
+      <div class="tbl-outer">
+        <table>
+          <thead><tr>
+            <th>Modelo iPhone</th>
+            <th>Fundas</th><th>Mín fundas</th>
+            <th>Vidrios</th><th>Mín vidrios</th>
+            <th>Estado</th><th></th>
+          </tr></thead>
+          <tbody id="iphone-acc-tbody"></tbody>
+        </table>
       </div>
     </div>
 
@@ -992,15 +1024,20 @@ Configurá los filtros y hacé clic en "Generar lista"
     <div class="page" id="pg-entregas">
       <div class="sec">
         <div>
-          <h2 id="ent-title">Entregas pendientes</h2>
+          <h2>Entregas pendientes</h2>
           <div style="font-size:11px;color:var(--ink3);margin-top:2px" id="ent-sub"></div>
         </div>
+        <button class="btn btn-ink btn-sm" onclick="openDeliveryDrawer()">+ Nueva entrega</button>
+      </div>
+      <!-- Filters -->
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px" id="ent-filters">
+        <button class="btn btn-ghost btn-sm ent-filter active" data-f="" onclick="setEntFilter('',this)">Todas</button>
+        <button class="btn btn-ghost btn-sm ent-filter" data-f="pendiente" onclick="setEntFilter('pendiente',this)">Pendientes</button>
+        <button class="btn btn-ghost btn-sm ent-filter" data-f="en_camino" onclick="setEntFilter('en_camino',this)">En camino</button>
+        <button class="btn btn-ghost btn-sm ent-filter" data-f="entregada" onclick="setEntFilter('entregada',this)">Entregadas</button>
+        <button class="btn btn-ghost btn-sm ent-filter" data-f="cancelada" onclick="setEntFilter('cancelada',this)">Canceladas</button>
       </div>
       <div id="ent-list"></div>
-      <div id="ent-done-section" style="display:none">
-        <div style="font-size:10px;font-weight:600;color:var(--ink3);letter-spacing:.8px;text-transform:uppercase;margin:20px 0 10px">ENTREGADAS HOY</div>
-        <div id="ent-done-list"></div>
-      </div>
     </div>
 
     <!-- ══ CONTENIDO ══ -->
@@ -1392,10 +1429,25 @@ let purchaseNeeds = [
 // Sale accessories log
 let saleAccesorios = [];
 
+// iPhone accessories by model (fundas + vidrios per model)
+let iPhoneAccByModel = [
+  {id:uid(),modelBase:'iPhone 13',casesQty:3,casesMin:2,glassQty:4,glassMin:2,updatedAt:today()},
+  {id:uid(),modelBase:'iPhone 14',casesQty:2,casesMin:2,glassQty:1,glassMin:2,updatedAt:today()},
+  {id:uid(),modelBase:'iPhone 15 Pro Max',casesQty:5,casesMin:2,glassQty:6,glassMin:2,updatedAt:today()},
+];
+
+// Accessory movements log
+let accMovements = [];
+
+// Pending deliveries (replaces old entregas-from-ventas approach)
+let pendingDeliveries = [
+  {id:uid(),linkedSaleId:'',linkedPurchaseNeedId:'',brand:'Apple',category:'iPhone',model:'iPhone 15 Pro Max',storage:'256GB',color:'Negro Titanio',productLabel:'Apple iPhone 15 Pro Max 256GB Negro Titanio',modelBase:'iPhone 15 Pro Max',clientName:'Lucas Pérez',clientPhone:'+54 9 11 5555-1111',estimatedDate:today(),estimatedTime:'',zone:'Palermo',deliveryMethod:'moto',seller:'Pedro',status:'pendiente',includesCase:true,includesGlass:true,includesExtraCable:false,notes:'',createdAt:today(),deliveredAt:null},
+];
+
 // ════════════════════════════════════════
 // NAVIGATION
 // ════════════════════════════════════════
-const pageTitles={rapido:'Modo rápido',stock:'Stock',ventas:'Ventas',tradein:'Parte de pago',gastos:'Gastos',accesorios:'Accesorios',clientes:'Clientes',proveedores:'Proveedores',flujo:'Flujo de fondos',reportes:'Reportes',entregas:'Entregas del día',contenido:'¿Qué posteo hoy?',precios:'Precios y márgenes',walist:'Generar lista WhatsApp',ventas_ia:'Centro de ventas IA',compras:'Compras pendientes',sup_search:'Búsqueda de precios'};
+const pageTitles={rapido:'Modo rápido',stock:'Stock',ventas:'Ventas',tradein:'Parte de pago',gastos:'Gastos',accesorios:'Accesorios',clientes:'Clientes',proveedores:'Proveedores',flujo:'Flujo de fondos',reportes:'Reportes',entregas:'Entregas pendientes',contenido:'¿Qué posteo hoy?',precios:'Precios y márgenes',walist:'Generar lista WhatsApp',ventas_ia:'Centro de ventas IA',compras:'Compras pendientes',sup_search:'Búsqueda de precios'};
 function go(page,navEl){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.sn').forEach(n=>n.classList.remove('active'));
@@ -1821,7 +1873,16 @@ function onVProdChange(){
   if(s&&!document.getElementById('v-precio').value)document.getElementById('v-precio').value=s.precio;
   // Show auto-accessories notice for iPhone/phone categories
   const notice=document.getElementById('v-acc-notice');
-  if(notice){const isPhone=s&&(s.cat==='iPhone'||s.cat==='Android');notice.style.display=isPhone?'block':'none';}
+  if(notice&&s){
+    const isPhone=(s.cat==='iPhone'||s.cat==='Android');
+    notice.style.display=isPhone?'block':'none';
+    // Check model-specific stock
+    if(isPhone){
+      const modelBase=normalizeIPhoneModel(s.modelo)||s.modelo;
+      const warn=checkIPhoneAccStock(modelBase,true,true);
+      if(warn)setTimeout(()=>toast(warn),400);
+    }
+  }
 }
 function calcBalance(){
   const p=parseFloat(document.getElementById('v-precio').value)||0;
@@ -1939,6 +2000,15 @@ function saveVenta(){
   updateEntBadge();
 
   toast(editId?'✓ Venta actualizada':'✓ Venta registrada');
+  // Offer to create delivery if not edit
+  if(!editId&&obj.estado!=='Entregado'){
+    const createDel=confirm('¿Crear entrega pendiente para esta venta?');
+    if(createDel){
+      const modelBase=normalizeIPhoneModel(obj.producto)||obj.producto;
+      const isPhone=isIPhoneProduct({modelo:obj.producto});
+      openDeliveryDrawer({client:obj.cliente,productLabel:obj.producto,includesCase:isPhone,includesGlass:isPhone,zone:obj.zona||''});
+    }
+  }
 }
 
 function editVenta(id){
@@ -2078,81 +2148,501 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){document.querySelec
 // ════════════════════════════════════════
 // ENTREGAS DEL DÍA
 // ════════════════════════════════════════
-function renderEntregas() {
-  // Pendientes = ventas Vendido/Reservado (not Entregado) — any date
-  const pending = ventas.filter(v => v.estado !== 'Entregado' || v.entEstado === 'en_camino');
-  const done    = ventas.filter(v => v.entEstado === 'entregado' && v.fecha === today());
+// ════════════════════════════════════════
+// NORMALIZE / DETECT IPHONE
+// ════════════════════════════════════════
+function normalizeIPhoneModel(name) {
+  if (!name) return null;
+  const n = name.toLowerCase().replace(/apple\s+/gi,'').replace(/iphone\s*/gi,'iphone ').replace(/\s+/g,' ').trim();
+  // Strip storage/color/condition suffixes
+  const cleaned = n.replace(/\b\d{2,4}gb\b|\btb\b|\bnegro\b|\bblack\b|\bblanco\b|\bwhite\b|\bazul\b|\bblue\b|\bmorado\b|\bpurple\b|\brojo\b|\bnuevo\b|\busado\b|\bdetalle\b|\bnat\w*\b|\bspace\b|\bgray\b|\bgrey\b|\bgrafito\b|\bplateado\b|\bsilver\b|\bmed\w*\b|\bstar\w*/gi,'').replace(/\s+/g,' ').trim();
+  // Map to canonical
+  const maps = [
+    [/iphone\s*17\s*pro\s*max/i,'iPhone 17 Pro Max'],
+    [/iphone\s*17\s*pro(?!\s*max)/i,'iPhone 17 Pro'],
+    [/iphone\s*17\s*air/i,'iPhone 17 Air'],
+    [/iphone\s*17(?!\s*pro|\s*air|\s*plus)/i,'iPhone 17'],
+    [/iphone\s*16\s*pro\s*max/i,'iPhone 16 Pro Max'],
+    [/iphone\s*16\s*pro(?!\s*max)/i,'iPhone 16 Pro'],
+    [/iphone\s*16\s*plus/i,'iPhone 16 Plus'],
+    [/iphone\s*16(?!\s*pro|\s*plus)/i,'iPhone 16'],
+    [/iphone\s*15\s*pro\s*max/i,'iPhone 15 Pro Max'],
+    [/iphone\s*15\s*pro(?!\s*max)/i,'iPhone 15 Pro'],
+    [/iphone\s*15\s*plus/i,'iPhone 15 Plus'],
+    [/iphone\s*15(?!\s*pro|\s*plus)/i,'iPhone 15'],
+    [/iphone\s*14\s*pro\s*max/i,'iPhone 14 Pro Max'],
+    [/iphone\s*14\s*pro(?!\s*max)/i,'iPhone 14 Pro'],
+    [/iphone\s*14\s*plus/i,'iPhone 14 Plus'],
+    [/iphone\s*14(?!\s*pro|\s*plus)/i,'iPhone 14'],
+    [/iphone\s*13\s*pro\s*max/i,'iPhone 13 Pro Max'],
+    [/iphone\s*13\s*pro(?!\s*max)/i,'iPhone 13 Pro'],
+    [/iphone\s*13\s*mini/i,'iPhone 13 mini'],
+    [/iphone\s*13(?!\s*pro|\s*mini)/i,'iPhone 13'],
+    [/iphone\s*12\s*pro\s*max/i,'iPhone 12 Pro Max'],
+    [/iphone\s*12\s*pro(?!\s*max)/i,'iPhone 12 Pro'],
+    [/iphone\s*12\s*mini/i,'iPhone 12 mini'],
+    [/iphone\s*12(?!\s*pro|\s*mini)/i,'iPhone 12'],
+    [/iphone\s*11\s*pro\s*max/i,'iPhone 11 Pro Max'],
+    [/iphone\s*11\s*pro(?!\s*max)/i,'iPhone 11 Pro'],
+    [/iphone\s*11(?!\s*pro)/i,'iPhone 11'],
+    [/iphone\s*se/i,'iPhone SE'],
+  ];
+  for (const [re,canonical] of maps) {
+    if (re.test(name)) return canonical;
+  }
+  // fallback: if it mentions iphone, return best guess from cleaned
+  if (/iphone/i.test(name)) return cleaned.replace(/^\S+\s*/,'').trim() || null;
+  return null;
+}
 
-  const sub = document.getElementById('ent-sub');
-  if (sub) sub.textContent = pending.length
-    ? `${pending.length} por entregar` + (done.length ? ` · ${done.length} entregadas hoy` : '')
-    : done.length ? `${done.length} entregadas hoy` : '';
+function isIPhoneProduct(product) {
+  const name = (product?.modelo||product?.productLabel||product?.producto||product||'').toLowerCase();
+  return name.includes('iphone');
+}
 
-  // render pending
-  const list = document.getElementById('ent-list');
-  if (!list) return;
-  if (!pending.length) {
-    list.innerHTML = `<div class="ent-empty"><div class="ent-empty-icon">✓</div><div style="font-size:12px;color:var(--ink3);text-align:center">Sin entregas pendientes.<br>¡Todo al día!</div></div>`;
+function getAllIPhoneModels() {
+  // Collect all iPhone model strings from stock, supplierProds, purchaseNeeds
+  const names = [
+    ...stock.map(s=>s.modelo),
+    ...supplierProds.map(p=>p.modelo),
+    ...purchaseNeeds.map(p=>p.producto),
+  ];
+  const models = new Set();
+  names.forEach(n=>{ const m=normalizeIPhoneModel(n); if(m)models.add(m); });
+  // Also include existing iPhoneAccByModel entries
+  iPhoneAccByModel.forEach(r=>models.add(r.modelBase));
+  return [...models].sort();
+}
+
+// ════════════════════════════════════════
+// SUPPLIER OPTIONS (step-by-step selector)
+// ════════════════════════════════════════
+function getSupplierProductOptions() {
+  // Combine all sources
+  const all = [
+    ...supplierProds.map(p=>({brand:'Apple',cat:p.cat,model:p.modelo,storage:p.storage,color:p.color})),
+    ...stock.map(s=>({brand:'Apple',cat:s.cat,model:s.modelo,storage:s.storage,color:s.color})),
+    ...purchaseNeeds.filter(p=>p.producto).map(p=>{
+      const cat = guessCategory(p.producto);
+      return {brand:'Apple',cat,model:p.producto,storage:'',color:''};
+    }),
+  ];
+  return all;
+}
+
+function getOptionsForStep(step, selections) {
+  const all = getSupplierProductOptions();
+  const {brand,cat,model,storage} = selections;
+  let filtered = all;
+  if (brand) filtered = filtered.filter(p=>!brand||p.brand===brand||!p.brand);
+  if (cat && step!=='cat') filtered = filtered.filter(p=>p.cat===cat);
+  if (model && step!=='model') filtered = filtered.filter(p=>normalizeIPhoneModel(p.model)===normalizeIPhoneModel(model)||p.model===model);
+  if (storage && step!=='storage') filtered = filtered.filter(p=>p.storage===storage);
+  const field = {cat:'cat',model:'model',storage:'storage',color:'color'}[step];
+  const vals = [...new Set(filtered.map(p=>p[field]).filter(Boolean))].sort();
+  return vals;
+}
+
+// ════════════════════════════════════════
+// DELIVERY DRAWER STEP-BY-STEP
+// ════════════════════════════════════════
+let _delSelections = {};
+function openDeliveryDrawer(prefill) {
+  _delSelections = {};
+  document.getElementById('del-id').value='';
+  document.getElementById('drawer-delivery-title').textContent='Nueva entrega pendiente';
+  ['del-client','del-phone','del-zone','del-notes','del-time'].forEach(id=>{
+    const el=document.getElementById(id); if(el)el.value='';
+  });
+  document.getElementById('del-date').value=today();
+  document.getElementById('del-case').checked=false;
+  document.getElementById('del-glass').checked=false;
+  document.getElementById('del-cable').checked=false;
+  document.getElementById('del-acc-warn').style.display='none';
+  document.getElementById('del-product-preview').style.display='none';
+  // Reset selectors
+  resetDelSelector('del-brand','');
+  const catSel=document.getElementById('del-cat');
+  catSel.innerHTML='<option value="">Primero marca</option>';catSel.disabled=true;
+  const modSel=document.getElementById('del-model');
+  modSel.innerHTML='<option value="">Primero categoría</option>';modSel.disabled=true;
+  const stSel=document.getElementById('del-storage');
+  stSel.innerHTML='<option value="">Primero modelo</option>';stSel.disabled=true;
+  const colSel=document.getElementById('del-color');
+  colSel.innerHTML='<option value="">Primero capacidad</option>';colSel.disabled=true;
+
+  if(prefill) {
+    // Pre-fill from venta or purchase
+    setTimeout(()=>{
+      if(prefill.client) document.getElementById('del-client').value=prefill.client;
+      if(prefill.zone) document.getElementById('del-zone').value=prefill.zone;
+      if(prefill.productLabel) document.getElementById('del-product-preview').textContent=prefill.productLabel, document.getElementById('del-product-preview').style.display='block';
+      if(prefill.includesCase) document.getElementById('del-case').checked=true;
+      if(prefill.includesGlass) document.getElementById('del-glass').checked=true;
+    },60);
+  }
+  document.getElementById('drawer-delivery').classList.add('open');
+}
+
+function resetDelSelector(id, val) {
+  const el=document.getElementById(id); if(el)el.value=val||'';
+}
+
+function onDelBrandChange() {
+  const brand=document.getElementById('del-brand').value;
+  _delSelections={brand};
+  const catSel=document.getElementById('del-cat');
+  catSel.innerHTML='<option value="">Seleccionar...</option>';
+  if(brand){
+    const cats=getOptionsForStep('cat',_delSelections);
+    if(!cats.length){cats.push('iPhone','MacBook','iPad','AirPods','PS5');}
+    cats.forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=v;catSel.appendChild(o);});
+    catSel.disabled=false;
+  } else {catSel.disabled=true;}
+  const modSel=document.getElementById('del-model');modSel.innerHTML='<option value="">Primero categoría</option>';modSel.disabled=true;
+  const stSel=document.getElementById('del-storage');stSel.innerHTML='<option value="">Primero modelo</option>';stSel.disabled=true;
+  const colSel=document.getElementById('del-color');colSel.innerHTML='<option value="">Primero capacidad</option>';colSel.disabled=true;
+  updateDelPreview();
+}
+
+function onDelCatChange() {
+  const cat=document.getElementById('del-cat').value;
+  _delSelections.cat=cat;
+  const modSel=document.getElementById('del-model');
+  modSel.innerHTML='<option value="">Seleccionar...</option>';
+  if(cat){
+    let models=getOptionsForStep('model',_delSelections);
+    if(!models.length&&cat==='iPhone') models=getAllIPhoneModels();
+    models.forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=v;modSel.appendChild(o);});
+    modSel.disabled=false;
+  } else modSel.disabled=true;
+  const stSel=document.getElementById('del-storage');stSel.innerHTML='<option value="">Primero modelo</option>';stSel.disabled=true;
+  const colSel=document.getElementById('del-color');colSel.innerHTML='<option value="">Primero capacidad</option>';colSel.disabled=true;
+  updateDelPreview();
+}
+
+function onDelModelChange() {
+  const model=document.getElementById('del-model').value;
+  _delSelections.model=model;
+  const stSel=document.getElementById('del-storage');
+  stSel.innerHTML='<option value="">Seleccionar...</option>';
+  const storages=getOptionsForStep('storage',_delSelections);
+  if(storages.length){
+    storages.forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=v;stSel.appendChild(o);});
+    stSel.disabled=false;
   } else {
-    list.innerHTML = pending.map(v => entCard(v, false)).join('');
+    stSel.innerHTML='<option value="">Sin especificar</option>';stSel.disabled=false;
+  }
+  const colSel=document.getElementById('del-color');colSel.innerHTML='<option value="">Primero capacidad</option>';colSel.disabled=true;
+  // Auto-check case/glass for iPhone
+  if(isIPhoneProduct({modelo:model})){
+    document.getElementById('del-case').checked=true;
+    document.getElementById('del-glass').checked=true;
+  }
+  updateDelPreview();
+}
+
+function onDelStorageChange() {
+  const storage=document.getElementById('del-storage').value;
+  _delSelections.storage=storage;
+  const colSel=document.getElementById('del-color');
+  colSel.innerHTML='<option value="">Sin color especificado</option>';
+  const colors=getOptionsForStep('color',_delSelections);
+  colors.forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=v;colSel.appendChild(o);});
+  colSel.disabled=false;
+  updateDelPreview();
+}
+
+function updateDelPreview() {
+  const brand=document.getElementById('del-brand').value;
+  const cat=document.getElementById('del-cat').value;
+  const model=document.getElementById('del-model').value;
+  const storage=document.getElementById('del-storage').value;
+  const color=document.getElementById('del-color').value;
+  const parts=[brand,cat,model,storage,color].filter(Boolean);
+  const prev=document.getElementById('del-product-preview');
+  if(parts.length>=3){
+    prev.textContent=parts.join(' – ');prev.style.display='block';
+  } else {
+    prev.style.display='none';
+  }
+}
+
+function saveDelivery() {
+  const brand=document.getElementById('del-brand').value;
+  const cat=document.getElementById('del-cat').value;
+  const model=document.getElementById('del-model').value;
+  if(!model&&!document.getElementById('del-client').value){toast('⚠ Completá al menos modelo y cliente');return;}
+  const storage=document.getElementById('del-storage').value;
+  const color=document.getElementById('del-color').value;
+  const productLabel=[brand,cat,model,storage,color].filter(Boolean).join(' ');
+  const modelBase = normalizeIPhoneModel(model)||model;
+  const incCase=document.getElementById('del-case').checked;
+  const incGlass=document.getElementById('del-glass').checked;
+
+  // Check accessory stock
+  if(incCase||incGlass) {
+    const warn = checkIPhoneAccStock(modelBase, incCase, incGlass);
+    if(warn) {
+      const warnEl=document.getElementById('del-acc-warn');
+      warnEl.textContent=warn; warnEl.style.display='block';
+      // Still allow saving but warn
+    }
   }
 
-  // render done
-  const doneSection = document.getElementById('ent-done-section');
-  const doneList = document.getElementById('ent-done-list');
-  if (doneSection && doneList) {
-    doneSection.style.display = done.length ? 'block' : 'none';
-    doneList.innerHTML = done.map(v => entCard(v, true)).join('');
+  const editId=document.getElementById('del-id').value;
+  const obj={
+    id:editId||uid(),
+    linkedSaleId:'',linkedPurchaseNeedId:'',
+    brand,category:cat,model,storage,color,productLabel,modelBase,
+    clientName:document.getElementById('del-client').value||'',
+    clientPhone:document.getElementById('del-phone').value||'',
+    estimatedDate:document.getElementById('del-date').value||today(),
+    estimatedTime:document.getElementById('del-time').value||'',
+    zone:document.getElementById('del-zone').value||'',
+    deliveryMethod:document.getElementById('del-method').value,
+    seller:document.getElementById('del-seller').value,
+    status:document.getElementById('del-status').value||'pendiente',
+    includesCase:incCase,includesGlass:incGlass,
+    includesExtraCable:document.getElementById('del-cable').checked,
+    notes:document.getElementById('del-notes').value||'',
+    createdAt:today(),deliveredAt:null,
+  };
+  if(editId){const i=pendingDeliveries.findIndex(d=>d.id===editId);if(i>=0)pendingDeliveries[i]=obj;}
+  else pendingDeliveries.unshift(obj);
+  closeDrawer('delivery');
+  renderEntregas();
+  updateEntBadge();
+  dbUpsert('pending_deliveries',obj);
+  toast('✓ Entrega pendiente guardada');
+}
+
+// ════════════════════════════════════════
+// ENTREGAS PENDIENTES — RENDER
+// ════════════════════════════════════════
+let _entFilter = '';
+function setEntFilter(f, el) {
+  _entFilter = f;
+  document.querySelectorAll('.ent-filter').forEach(b=>b.classList.remove('active'));
+  if(el) el.classList.add('active');
+  renderEntregas();
+}
+
+function renderEntregas() {
+  let items = pendingDeliveries.filter(d=> !_entFilter || d.status===_entFilter);
+  const pending = pendingDeliveries.filter(d=>d.status==='pendiente'||d.status==='en_camino');
+  const sub = document.getElementById('ent-sub');
+  if(sub) sub.textContent = `${pending.length} por entregar · ${pendingDeliveries.filter(d=>d.status==='entregada').length} entregadas`;
+  const list = document.getElementById('ent-list');
+  if(!list) return;
+  if(!items.length){
+    list.innerHTML=`<div class="ent-empty"><div class="ent-empty-icon">✓</div><div style="font-size:12px;color:var(--ink3);text-align:center">${_entFilter?'Sin entregas con este filtro.':'Sin entregas cargadas todavía.'}</div></div>`;
+    updateEntBadge();return;
   }
+  const statusPill=(s)=>({
+    pendiente:'<span class="pill del-pending">Pendiente</span>',
+    en_camino:'<span class="pill del-camino">↗ En camino</span>',
+    entregada:'<span class="pill del-done">✓ Entregada</span>',
+    cancelada:'<span class="pill del-cancelled">Cancelada</span>',
+  }[s]||'');
+  const methodIcon=(m)=>({moto:'🏍',envio:'📦',retiro:'🏪',otro:'🚗'}[m]||'');
+  list.innerHTML=items.map(d=>{
+    const isPhone=isIPhoneProduct({modelo:d.model||d.productLabel});
+    const acts = d.status==='entregada'||d.status==='cancelada'
+      ? `<button class="ent-btn ent-btn-undone" onclick="markDeliveryStatus('${d.id}','pendiente')">Reabrir</button>`
+      : d.status==='en_camino'
+        ? `<button class="ent-btn ent-btn-done" onclick="markDeliveryStatus('${d.id}','entregada')">✓ Entregada</button>
+           <button class="ent-btn ent-btn-undone" style="font-size:9px" onclick="markDeliveryStatus('${d.id}','cancelada')">Cancelar</button>`
+        : `<button class="ent-btn ent-btn-camino" onclick="markDeliveryStatus('${d.id}','en_camino')">↗ En camino</button>
+           <button class="ent-btn ent-btn-done" onclick="markDeliveryStatus('${d.id}','entregada')">✓ Entregada</button>
+           <button class="ent-btn ent-btn-undone" style="font-size:9px" onclick="markDeliveryStatus('${d.id}','cancelada')">Cancelar</button>`;
+    return`<div class="ent-card${d.status==='entregada'?' done':''}">
+      <div class="ent-icon">${isPhone?'📱':'📦'}</div>
+      <div class="ent-info">
+        <div class="ent-prod">${d.productLabel||d.model||'Producto'}</div>
+        <div class="ent-meta">
+          <span style="font-weight:600">${d.clientName||'Sin cliente'}</span>
+          ${d.zone?`<span class="ent-zone">${d.zone}</span>`:''}
+          ${methodIcon(d.deliveryMethod)}
+          ${statusPill(d.status)}
+          ${d.estimatedDate&&d.estimatedDate!==today()?`<span style="font-family:var(--mono);font-size:10px">${d.estimatedDate}</span>`:''}
+          ${d.includesCase?'<span style="font-size:10px">📱funda</span>':''}
+          ${d.includesGlass?'<span style="font-size:10px">🔲vidrio</span>':''}
+        </div>
+      </div>
+      <div class="ent-acts">${acts}</div>
+    </div>`;
+  }).join('');
   updateEntBadge();
 }
 
-function entCard(v, isDone) {
-  const cat = v.producto.split(' ')[0];
-  const icon = {iPhone:'📱',MacBook:'💻',AirPods:'🎧',iPad:'📱',PS5:'🎮',Apple:'⌚'}[cat] || '📦';
-  const statusPill = v.entEstado === 'en_camino'
-    ? `<span style="font-size:10px;font-weight:600;color:var(--a);font-family:var(--mono)">EN CAMINO</span>`
-    : isDone ? `<span style="font-size:10px;font-weight:600;color:var(--g);font-family:var(--mono)">ENTREGADO</span>`
-    : '';
-  const actsBtns = isDone
-    ? `<button class="ent-btn ent-btn-undone" onclick="setEntEstado('${v.id}','pendiente')">Deshacer</button>`
-    : v.entEstado === 'en_camino'
-      ? `<button class="ent-btn ent-btn-done" onclick="setEntEstado('${v.id}','entregado')">✓ Entregado</button>`
-      : `<button class="ent-btn ent-btn-camino" onclick="setEntEstado('${v.id}','en_camino')">↗ En camino</button>
-         <button class="ent-btn ent-btn-done" onclick="setEntEstado('${v.id}','entregado')">✓ Entregado</button>`;
-  return `<div class="ent-card${isDone?' done':''}">
-    <div class="ent-icon">${icon}</div>
-    <div class="ent-info">
-      <div class="ent-prod">${v.producto}</div>
-      <div class="ent-meta">
-        <span style="font-weight:600">${v.cliente||'Sin cliente'}</span>
-        ${v.zona ? `<span class="ent-zone">${v.zona}</span>` : ''}
-        ${statusPill}
-        <span style="font-family:var(--mono)">${v.vendedor}</span>
-      </div>
-    </div>
-    <div class="ent-acts">${actsBtns}</div>
-  </div>`;
-}
-
-function setEntEstado(id, estado) {
-  const v = ventas.find(x => x.id === id);
-  if (!v) return;
-  v.entEstado = estado;
-  if (estado === 'entregado') {
-    v.estado = 'Entregado';
-    v.fecha = today(); // stamp delivery date
+function markDeliveryStatus(id, status) {
+  const d = pendingDeliveries.find(x=>x.id===id);
+  if(!d) return;
+  if(d.status==='entregada'&&status==='entregada') return; // prevent double deduct
+  const wasDelivered = d.status==='entregada';
+  d.status=status;
+  if(status==='entregada'&&!wasDelivered){
+    d.deliveredAt=today();
+    // Deduct accessories
+    if(d.includesCase||d.includesGlass) {
+      decrementIPhoneAccessories(d.modelBase, {case:d.includesCase, glass:d.includesGlass, deliveryId:d.id});
+    }
+    if(d.includesExtraCable){
+      const cable=accesorios.find(a=>a.tipo==='Cables USB-C');
+      if(cable&&cable.qty>0)cable.qty--;
+    }
+    updateAccBadge();
+    toast('✓ Entregada — accesorios descontados');
+  } else if(status==='en_camino') {
+    toast('↗ Marcado en camino');
+  } else if(status==='cancelada') {
+    toast('Entrega cancelada');
+  } else {
+    toast('Estado actualizado');
   }
   renderEntregas();
-  if (estado === 'entregado') toast('✓ Entregado — venta cerrada');
-  else if (estado === 'en_camino') toast('↗ Marcado en camino');
+  dbUpsert('pending_deliveries',d);
+}
+
+// Legacy compatibility: ventas still use entEstado for old data
+function setEntEstado(id, estado) {
+  const v = ventas.find(x=>x.id===id);
+  if(!v) return;
+  v.entEstado=estado;
+  if(estado==='entregado'){v.estado='Entregado';v.fecha=today();}
+  renderEntregas();
+  if(estado==='entregado') toast('✓ Entregado'); else if(estado==='en_camino') toast('↗ En camino');
 }
 
 function updateEntBadge() {
-  const n = ventas.filter(v => v.estado !== 'Entregado' || v.entEstado === 'en_camino').length;
-  const b = document.getElementById('ent-badge');
-  if (b) { b.style.display = n ? 'block' : 'none'; b.textContent = n || ''; }
+  const n = pendingDeliveries.filter(d=>d.status==='pendiente'||d.status==='en_camino').length;
+  const b=document.getElementById('ent-badge');
+  if(b){b.style.display=n?'block':'none';b.textContent=n||'';}
 }
+
+// ════════════════════════════════════════
+// IPHONE ACCESSORIES BY MODEL
+// ════════════════════════════════════════
+function renderIPhoneAccessories() {
+  const models = getAllIPhoneModels();
+  // Ensure all known models have a row
+  models.forEach(m=>{if(!iPhoneAccByModel.find(r=>r.modelBase===m))
+    iPhoneAccByModel.push({id:uid(),modelBase:m,casesQty:0,casesMin:2,glassQty:0,glassMin:2,updatedAt:today()});
+  });
+  const tbody=document.getElementById('iphone-acc-tbody');
+  if(!tbody) return;
+  tbody.innerHTML=iPhoneAccByModel.sort((a,b)=>a.modelBase.localeCompare(b.modelBase)).map(r=>{
+    const caseLow=r.casesQty<r.casesMin;
+    const glassLow=r.glassQty<r.glassMin;
+    const rowClass=(caseLow?'iacc-low-cases':'')+(glassLow?' iacc-low-glass':'');
+    return`<tr class="${rowClass}">
+      <td style="font-weight:600">${r.modelBase}</td>
+      <td style="font-family:var(--mo);font-weight:700;color:${caseLow?'var(--r)':'var(--g)'}">${r.casesQty}</td>
+      <td style="font-family:var(--mo);color:var(--ink3)">${r.casesMin}</td>
+      <td style="font-family:var(--mo);font-weight:700;color:${glassLow?'var(--r)':'var(--g)'}">${r.glassQty}</td>
+      <td style="font-family:var(--mo);color:var(--ink3)">${r.glassMin}</td>
+      <td>${caseLow||glassLow?'<span class="pill pill-red">BAJO</span>':'<span class="pill pill-green">OK</span>'}</td>
+      <td>
+        <div style="display:flex;gap:4px">
+          <button class="btn btn-ghost btn-xs" onclick="quickIAccMov('${r.id}','case','in')">+F</button>
+          <button class="btn btn-ghost btn-xs" onclick="quickIAccMov('${r.id}','glass','in')">+V</button>
+          <button class="btn btn-ghost btn-xs" style="color:var(--r)" onclick="quickIAccMov('${r.id}','case','out')">-F</button>
+          <button class="btn btn-ghost btn-xs" style="color:var(--r)" onclick="quickIAccMov('${r.id}','glass','out')">-V</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function quickIAccMov(id, type, dir) {
+  const r=iPhoneAccByModel.find(x=>x.id===id);if(!r)return;
+  const field=type==='case'?'casesQty':'glassQty';
+  if(dir==='out'&&r[field]<=0){toast('⚠ Sin stock');return;}
+  r[field]+=dir==='in'?1:-1;r.updatedAt=today();
+  renderAccesorios();dbUpsert('iphone_acc_by_model',r);
+  toast(`✓ ${type==='case'?'Funda':'Vidrio'} ${dir==='in'?'+1':'-1'} para ${r.modelBase}`);
+}
+
+function openIPhoneAccDrawer() {
+  const modelSel=document.getElementById('iacc-model');
+  modelSel.innerHTML='<option value="">Seleccionar...</option>';
+  getAllIPhoneModels().forEach(m=>{const o=document.createElement('option');o.value=m;o.textContent=m;modelSel.appendChild(o);});
+  ['iacc-qty','iacc-cost','iacc-note','iacc-newmodel'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  document.getElementById('iacc-qty').value='1';
+  document.getElementById('drawer-iphone-acc').classList.add('open');
+}
+
+function saveIPhoneAccMov() {
+  let modelBase=document.getElementById('iacc-model').value;
+  const newModel=document.getElementById('iacc-newmodel').value.trim();
+  if(newModel){
+    modelBase=normalizeIPhoneModel(newModel)||newModel;
+    if(!iPhoneAccByModel.find(r=>r.modelBase===modelBase))
+      iPhoneAccByModel.push({id:uid(),modelBase,casesQty:0,casesMin:2,glassQty:0,glassMin:2,updatedAt:today()});
+  }
+  if(!modelBase){toast('⚠ Seleccioná o escribí un modelo');return;}
+  const type=document.getElementById('iacc-type').value; // 'case' or 'glass'
+  const qty=parseInt(document.getElementById('iacc-qty').value)||1;
+  const dir=document.getElementById('iacc-dir').value;
+  const cost=parseFloat(document.getElementById('iacc-cost').value)||0;
+  const note=document.getElementById('iacc-note').value;
+  const r=iPhoneAccByModel.find(x=>x.modelBase===modelBase);
+  if(!r){toast('⚠ Modelo no encontrado');return;}
+  const field=type==='case'?'casesQty':'glassQty';
+  if(dir==='out'&&r[field]<qty){toast(`⚠ Solo hay ${r[field]} en stock`);return;}
+  if(dir==='in') r[field]+=qty;
+  else if(dir==='out') r[field]-=qty;
+  else r[field]=qty; // adjust
+  r.updatedAt=today();
+  // Log movement
+  const mov={id:uid(),type,modelBase,qty,direction:dir,unitCostUsd:cost,note,linkedSaleId:'',linkedDeliveryId:'',date:today()};
+  accMovements.push(mov);
+  closeDrawer('iphone-acc');
+  renderAccesorios();
+  dbUpsert('iphone_acc_by_model',r);
+  dbUpsert('acc_movements',mov);
+  toast(`✓ ${type==='case'?'Fundas':'Vidrios'} ${dir==='in'?'+'+qty:dir==='out'?'-'+qty:'='+qty} para ${modelBase}`);
+}
+
+function checkIPhoneAccStock(modelBase, needCase, needGlass) {
+  const r=iPhoneAccByModel.find(x=>x.modelBase===modelBase);
+  if(!r) return null;
+  const warns=[];
+  if(needCase&&r.casesQty<=0) warns.push(`no hay fundas para ${modelBase}`);
+  if(needGlass&&r.glassQty<=0) warns.push(`no hay vidrios para ${modelBase}`);
+  return warns.length?'⚠ Atención: '+warns.join(' y '):null;
+}
+
+function decrementIPhoneAccessories(modelBase, opts) {
+  const r=iPhoneAccByModel.find(x=>x.modelBase===modelBase);
+  if(!r) return;
+  if(opts.case&&r.casesQty>0){r.casesQty--;accMovements.push({id:uid(),type:'case',modelBase,qty:1,direction:'out',unitCostUsd:0,note:'Auto - entrega',linkedDeliveryId:opts.deliveryId||'',date:today()});}
+  if(opts.glass&&r.glassQty>0){r.glassQty--;accMovements.push({id:uid(),type:'glass',modelBase,qty:1,direction:'out',unitCostUsd:0,note:'Auto - entrega',linkedDeliveryId:opts.deliveryId||'',date:today()});}
+  r.updatedAt=today();
+  dbUpsert('iphone_acc_by_model',r);
+  updateAccBadge();
+}
+
+// ════════════════════════════════════════
+// EXTEND renderAccesorios to include iPhone acc table
+// ════════════════════════════════════════
+const _origRenderAccesorios = renderAccesorios;
+renderAccesorios = function() {
+  _origRenderAccesorios();
+  renderIPhoneAccessories();
+};
+
+// Extend updateAccBadge to include iPhone acc
+const _origUpdateAccBadge = updateAccBadge;
+updateAccBadge = function() {
+  _origUpdateAccBadge();
+  // also check iphone acc
+  const lowIAcc = iPhoneAccByModel.filter(r=>r.casesQty<r.casesMin||r.glassQty<r.glassMin).length;
+  const generalLow = accesorios.filter(a=>a.qty<a.min).length;
+  const b = document.getElementById('acc-badge');
+  if(b) b.style.display = (lowIAcc+generalLow)>0 ? 'block' : 'none';
+};
 
 // ════════════════════════════════════════
 // CONTENIDO — ¿QUÉ POSTEO HOY?
@@ -3467,7 +3957,10 @@ const TABLE_MAP = {
   leads:            { get: ()=>leads,            set: v=>{leads=v;},            pk:'id' },
   supplier_products:{ get: ()=>supplierProds,    set: v=>{supplierProds=v;},    pk:'id' },
   purchase_needs:   { get: ()=>purchaseNeeds,    set: v=>{purchaseNeeds=v;},    pk:'id' },
-  sale_accessories: { get: ()=>saleAccesorios,   set: v=>{saleAccesorios=v;},  pk:'id' },
+  sale_accessories:      { get: ()=>saleAccesorios,      set: v=>{saleAccesorios=v;},      pk:'id' },
+  pending_deliveries:    { get: ()=>pendingDeliveries,    set: v=>{pendingDeliveries=v;},    pk:'id' },
+  iphone_acc_by_model:   { get: ()=>iPhoneAccByModel,     set: v=>{iPhoneAccByModel=v;},     pk:'id' },
+  acc_movements:         { get: ()=>accMovements,          set: v=>{accMovements=v;},          pk:'id' },
 };
 
 // ── Load all data ──
@@ -3507,7 +4000,7 @@ function refreshActiveView() {
     tradein:renderTradein, gastos:renderGastos, accesorios:renderAccesorios,
     clientes:renderClientes, proveedores:renderProveedores,
     flujo:renderFlujo, reportes:renderReportes, entregas:renderEntregas,
-    precios:renderPrecios, compras:renderCompras, sup_search:renderSupSearch,
+    precios:renderPrecios, compras:renderCompras, sup_search:renderSupSearch, entregas:renderEntregas,
   }[id];
   if (fn) try { fn(); } catch(e) {}
   try { updateAccBadge(); updateEntBadge(); updateIABadge(); } catch(e) {}
@@ -3575,7 +4068,7 @@ async function bootApp() {
 }
 
 function bootLocalMode() {
-  renderDash(); updateAccBadge(); updateEntBadge(); updateIABadge(); updateComprasBadge();
+  renderDash(); updateAccBadge(); updateEntBadge(); updateIABadge(); updateComprasBadge(); renderIPhoneAccessories();
 }
 
 // ── Auth UI functions ──
@@ -3730,6 +4223,136 @@ setEntEstado = async function(id, estado) {
 })();
 
 </script>
+
+<!-- DELIVERY DRAWER -->
+<div class="drawer-overlay" id="drawer-delivery" onclick="if(event.target===this)closeDrawer('delivery')">
+<div class="drawer">
+  <div class="drawer-handle"></div>
+  <div class="drawer-header">
+    <div class="drawer-title" id="drawer-delivery-title">Nueva entrega pendiente</div>
+    <button class="btn btn-ghost btn-xs" onclick="closeDrawer('delivery')">✕</button>
+  </div>
+  <div class="drawer-body">
+    <input type="hidden" id="del-id">
+
+    <!-- Step-by-step product selector -->
+    <div style="background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:12px;margin-bottom:12px">
+      <div style="font-size:10px;font-weight:700;color:var(--ink3);letter-spacing:.5px;text-transform:uppercase;margin-bottom:10px">Producto (por pasos)</div>
+      <div class="fgrid fg2" style="gap:8px">
+        <div class="field"><label class="inp-label">Marca</label>
+          <select class="inp" id="del-brand" onchange="onDelBrandChange()">
+            <option value="">Seleccionar...</option>
+            <option>Apple</option><option>Samsung</option><option>Otro</option>
+          </select></div>
+        <div class="field"><label class="inp-label">Categoría</label>
+          <select class="inp" id="del-cat" onchange="onDelCatChange()" disabled>
+            <option value="">Primero marca</option>
+          </select></div>
+        <div class="field"><label class="inp-label">Modelo</label>
+          <select class="inp" id="del-model" onchange="onDelModelChange()" disabled>
+            <option value="">Primero categoría</option>
+          </select></div>
+        <div class="field"><label class="inp-label">Capacidad</label>
+          <select class="inp" id="del-storage" onchange="onDelStorageChange()" disabled>
+            <option value="">Primero modelo</option>
+          </select></div>
+        <div class="field" style="grid-column:1/-1"><label class="inp-label">Color</label>
+          <select class="inp" id="del-color" disabled>
+            <option value="">Primero capacidad</option>
+          </select></div>
+      </div>
+      <div id="del-product-preview" style="display:none;margin-top:10px;padding:8px 10px;background:var(--white);border:1px solid var(--line);border-radius:6px;font-size:12px;font-weight:600;color:var(--ink)"></div>
+    </div>
+
+    <!-- Client + delivery info -->
+    <div class="fgrid fg2" style="gap:10px;margin-bottom:12px">
+      <div class="field"><label class="inp-label">Cliente</label>
+        <input class="inp" id="del-client" placeholder="Nombre del cliente"></div>
+      <div class="field"><label class="inp-label">Teléfono</label>
+        <input class="inp" type="tel" id="del-phone" placeholder="+54 9 11..."></div>
+      <div class="field"><label class="inp-label">Fecha estimada</label>
+        <input class="inp" type="date" id="del-date"></div>
+      <div class="field"><label class="inp-label">Hora estimada</label>
+        <input class="inp" type="time" id="del-time"></div>
+      <div class="field"><label class="inp-label">Zona / lugar</label>
+        <input class="inp" id="del-zone" placeholder="Ej: Palermo, GBA Sur"></div>
+      <div class="field"><label class="inp-label">Medio de entrega</label>
+        <select class="inp" id="del-method">
+          <option value="moto">Moto</option><option value="envio">Envío</option>
+          <option value="retiro">Retiro en punto</option><option value="otro">Otro</option>
+        </select></div>
+      <div class="field"><label class="inp-label">Vendedor</label>
+        <select class="inp" id="del-seller"><option>Pedro</option><option>Hermano</option></select></div>
+      <div class="field"><label class="inp-label">Estado inicial</label>
+        <select class="inp" id="del-status">
+          <option value="pendiente">Pendiente</option><option value="en_camino">En camino</option>
+        </select></div>
+    </div>
+
+    <!-- Accessories -->
+    <div id="del-acc-warn" style="display:none;background:var(--a-bg);border:1px solid #e8d890;border-radius:7px;padding:9px 12px;font-size:11px;color:var(--a);margin-bottom:10px"></div>
+    <div style="display:flex;gap:14px;flex-wrap:wrap;padding:10px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);margin-bottom:10px">
+      <label style="display:flex;align-items:center;gap:7px;font-size:12px;cursor:pointer">
+        <input type="checkbox" id="del-case" style="accent-color:var(--g)"> Funda de regalo
+      </label>
+      <label style="display:flex;align-items:center;gap:7px;font-size:12px;cursor:pointer">
+        <input type="checkbox" id="del-glass" style="accent-color:var(--g)"> Vidrio templado
+      </label>
+      <label style="display:flex;align-items:center;gap:7px;font-size:12px;cursor:pointer">
+        <input type="checkbox" id="del-cable" style="accent-color:var(--g)"> Cable extra
+      </label>
+    </div>
+
+    <div class="field"><label class="inp-label">Notas</label>
+      <textarea class="inp" id="del-notes" rows="2" placeholder="Opcional..."></textarea>
+    </div>
+  </div>
+  <div class="drawer-footer">
+    <button class="btn btn-green" style="flex:1" onclick="saveDelivery()">Guardar entrega</button>
+    <button class="btn btn-ghost" onclick="closeDrawer('delivery')">Cancelar</button>
+  </div>
+</div>
+</div>
+
+<!-- IPHONE ACC DRAWER -->
+<div class="drawer-overlay" id="drawer-iphone-acc" onclick="if(event.target===this)closeDrawer('iphone-acc')">
+<div class="drawer">
+  <div class="drawer-handle"></div>
+  <div class="drawer-header">
+    <div class="drawer-title">Movimiento fundas / vidrios</div>
+    <button class="btn btn-ghost btn-xs" onclick="closeDrawer('iphone-acc')">✕</button>
+  </div>
+  <div class="drawer-body">
+    <div class="fgrid fg2" style="gap:10px;margin-bottom:12px">
+      <div class="field"><label class="inp-label">Tipo</label>
+        <select class="inp" id="iacc-type"><option value="case">Funda</option><option value="glass">Vidrio templado</option></select></div>
+      <div class="field"><label class="inp-label">Modelo iPhone</label>
+        <select class="inp" id="iacc-model"><option value="">Seleccionar...</option></select></div>
+      <div class="field"><label class="inp-label">Cantidad</label>
+        <input class="inp" type="number" id="iacc-qty" value="1" min="1"></div>
+      <div class="field"><label class="inp-label">Movimiento</label>
+        <select class="inp" id="iacc-dir">
+          <option value="in">Entrada (compra)</option>
+          <option value="out">Salida manual</option>
+          <option value="adjust">Ajuste de inventario</option>
+        </select></div>
+      <div class="field"><label class="inp-label">Costo u. (USD)</label>
+        <input class="inp" type="number" id="iacc-cost" step="0.5" placeholder="0"></div>
+      <div class="field" style="grid-column:1/-1"><label class="inp-label">Nota</label>
+        <input class="inp" id="iacc-note" placeholder="Opcional..."></div>
+    </div>
+    <div style="margin-top:8px;padding:10px 12px;background:var(--g-bg);border:1px solid #c0e8c8;border-radius:7px;font-size:11px;color:var(--g)">
+      Para agregar un nuevo modelo iPhone, escribís el nombre en el campo de abajo:
+    </div>
+    <div class="field" style="margin-top:10px"><label class="inp-label">O agregar nuevo modelo</label>
+      <input class="inp" id="iacc-newmodel" placeholder="Ej: iPhone 17 Pro Max"></div>
+  </div>
+  <div class="drawer-footer">
+    <button class="btn btn-green" style="flex:1" onclick="saveIPhoneAccMov()">Guardar</button>
+    <button class="btn btn-ghost" onclick="closeDrawer('iphone-acc')">Cancelar</button>
+  </div>
+</div>
+</div>
 
 <!-- LEAD MODAL -->
 <div class="lead-modal" id="lead-modal" onclick="if(event.target===this)closeLead()">
