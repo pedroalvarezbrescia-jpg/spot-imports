@@ -633,7 +633,7 @@ input:checked+.toggle-slider:before{transform:translateX(16px)}
       <div class="tbl-outer">
         <table>
           <thead><tr>
-            <th>Fecha</th><th>Producto</th><th>Cliente</th><th>Precio</th><th>Pago</th><th>Vendedor</th><th>Parte pago</th><th>Estado</th><th>Garantía</th><th></th>
+            <th>Fecha</th><th>Producto</th><th>Cliente</th><th>Precio</th><th>Costo</th><th>Margen</th><th>Pago</th><th>Vendedor</th><th>Estado</th><th>Garantía</th><th></th>
           </tr></thead>
           <tbody id="ventas-tbody"></tbody>
         </table>
@@ -1083,8 +1083,15 @@ Configurá los filtros y hacé clic en "Generar lista"
       <div class="fgrid fg2" style="gap:12px">
         <div class="field">
           <label class="inp-label">Precio venta (USD)</label>
-          <input class="inp" type="number" id="v-precio" step="0.01" placeholder="0" oninput="calcBalance()">
+          <input class="inp" type="number" id="v-precio" step="0.01" placeholder="0" oninput="calcBalance();calcVentaMargin()">
         </div>
+        <div class="field">
+          <label class="inp-label">Costo producto (USD) <span style="color:var(--ink3);font-weight:400;font-size:9px">opcional</span></label>
+          <input class="inp" type="number" id="v-costo-prod" step="0.01" placeholder="Ej: 650" oninput="calcVentaMargin()">
+        </div>
+      </div>
+      <div id="v-margin-preview" style="display:none;background:var(--g-bg);border:1px solid #c0e8c8;border-radius:6px;padding:7px 12px;font-size:11px;color:var(--ink2);font-family:var(--mo)"></div>
+      <div class="fgrid fg2" style="gap:12px;margin-top:4px">
         <div class="field">
           <label class="inp-label">Método de pago</label>
           <select class="inp" id="v-metodo" onchange="onMetodoChange()">
@@ -1431,9 +1438,40 @@ let saleAccesorios = [];
 
 // iPhone accessories by model (fundas + vidrios per model)
 let iPhoneAccByModel = [
+  // iPhone 11
+  {id:uid(),modelBase:'iPhone 11',casesQty:0,casesMin:2,glassQty:0,glassMin:2,updatedAt:today()},
+  {id:uid(),modelBase:'iPhone 11 Pro',casesQty:0,casesMin:2,glassQty:0,glassMin:2,updatedAt:today()},
+  {id:uid(),modelBase:'iPhone 11 Pro Max',casesQty:0,casesMin:2,glassQty:0,glassMin:2,updatedAt:today()},
+  // iPhone 12
+  {id:uid(),modelBase:'iPhone 12 mini',casesQty:0,casesMin:2,glassQty:0,glassMin:2,updatedAt:today()},
+  {id:uid(),modelBase:'iPhone 12',casesQty:0,casesMin:2,glassQty:0,glassMin:2,updatedAt:today()},
+  {id:uid(),modelBase:'iPhone 12 Pro',casesQty:0,casesMin:2,glassQty:0,glassMin:2,updatedAt:today()},
+  {id:uid(),modelBase:'iPhone 12 Pro Max',casesQty:0,casesMin:2,glassQty:0,glassMin:2,updatedAt:today()},
+  // iPhone 13
+  {id:uid(),modelBase:'iPhone 13 mini',casesQty:0,casesMin:2,glassQty:0,glassMin:2,updatedAt:today()},
   {id:uid(),modelBase:'iPhone 13',casesQty:3,casesMin:2,glassQty:4,glassMin:2,updatedAt:today()},
+  {id:uid(),modelBase:'iPhone 13 Pro',casesQty:0,casesMin:2,glassQty:0,glassMin:2,updatedAt:today()},
+  {id:uid(),modelBase:'iPhone 13 Pro Max',casesQty:0,casesMin:2,glassQty:0,glassMin:2,updatedAt:today()},
+  // iPhone 14
   {id:uid(),modelBase:'iPhone 14',casesQty:2,casesMin:2,glassQty:1,glassMin:2,updatedAt:today()},
+  {id:uid(),modelBase:'iPhone 14 Plus',casesQty:0,casesMin:2,glassQty:0,glassMin:2,updatedAt:today()},
+  {id:uid(),modelBase:'iPhone 14 Pro',casesQty:0,casesMin:2,glassQty:0,glassMin:2,updatedAt:today()},
+  {id:uid(),modelBase:'iPhone 14 Pro Max',casesQty:0,casesMin:2,glassQty:0,glassMin:2,updatedAt:today()},
+  // iPhone 15
+  {id:uid(),modelBase:'iPhone 15',casesQty:0,casesMin:2,glassQty:0,glassMin:2,updatedAt:today()},
+  {id:uid(),modelBase:'iPhone 15 Plus',casesQty:0,casesMin:2,glassQty:0,glassMin:2,updatedAt:today()},
+  {id:uid(),modelBase:'iPhone 15 Pro',casesQty:0,casesMin:2,glassQty:0,glassMin:2,updatedAt:today()},
   {id:uid(),modelBase:'iPhone 15 Pro Max',casesQty:5,casesMin:2,glassQty:6,glassMin:2,updatedAt:today()},
+  // iPhone 16
+  {id:uid(),modelBase:'iPhone 16',casesQty:0,casesMin:2,glassQty:0,glassMin:2,updatedAt:today()},
+  {id:uid(),modelBase:'iPhone 16 Plus',casesQty:0,casesMin:2,glassQty:0,glassMin:2,updatedAt:today()},
+  {id:uid(),modelBase:'iPhone 16 Pro',casesQty:0,casesMin:2,glassQty:0,glassMin:2,updatedAt:today()},
+  {id:uid(),modelBase:'iPhone 16 Pro Max',casesQty:0,casesMin:2,glassQty:0,glassMin:2,updatedAt:today()},
+  // iPhone 17
+  {id:uid(),modelBase:'iPhone 17',casesQty:0,casesMin:2,glassQty:0,glassMin:2,updatedAt:today()},
+  {id:uid(),modelBase:'iPhone 17 Air',casesQty:0,casesMin:2,glassQty:0,glassMin:2,updatedAt:today()},
+  {id:uid(),modelBase:'iPhone 17 Pro',casesQty:0,casesMin:2,glassQty:0,glassMin:2,updatedAt:today()},
+  {id:uid(),modelBase:'iPhone 17 Pro Max',casesQty:0,casesMin:2,glassQty:0,glassMin:2,updatedAt:today()},
 ];
 
 // Accessory movements log
@@ -1465,7 +1503,7 @@ function renderDash(){
   const todayStr=today(),mes=todayStr.slice(0,7);
   const ventasHoy=ventas.filter(v=>v.fecha===todayStr);
   const ingresoHoy=ventasHoy.reduce((s,v)=>s+v.precio,0);
-  const profitHoy=ventasHoy.reduce((s,v)=>{const st=stock.find(x=>x.id===v.stockId);return s+v.precio-(st?.costo||0);},0);
+  const profitHoy=ventasHoy.reduce((s,v)=>{const costo=v.productCostUsd!=null?v.productCostUsd:(stock.find(x=>x.id===v.stockId)?.costo||0);return s+v.precio-costo;},0);
   const disp=stock.filter(s=>s.estado==='Disponible').length;
   const pendPago=ventas.filter(v=>v.estado!=='Entregado').reduce((s,v)=>s+v.precio,0);
   document.getElementById('dash-metrics').innerHTML=`
@@ -1561,14 +1599,18 @@ function renderVentas(){
     const expId='ve-'+v.id;
     const garOk=v.garFin&&new Date()<=new Date(v.garFin);
     const garDaysLeft=v.garFin?Math.max(0,Math.ceil((new Date(v.garFin)-new Date())/86400000)):null;
+    const vCosto=v.productCostUsd!=null?v.productCostUsd:(v.stockId?stock.find(x=>x.id===v.stockId)?.costo:null);
+    const vMargen=vCosto!=null?(v.precio-vCosto):null;
+    const vMargenPct=vMargen!=null&&vCosto>0?Math.round(vMargen/vCosto*100):null;
     return`<tr onclick="toggleExpand('${expId}')" style="cursor:pointer">
       <td style="font-family:var(--mono);font-size:11px;color:var(--ink3)">${v.fecha}</td>
       <td><span style="font-weight:600">${v.producto}</span></td>
       <td style="color:var(--ink2)">${v.cliente||'—'}</td>
       <td style="font-family:var(--mono);font-weight:600">$${v.precio.toLocaleString()}</td>
+      <td style="font-family:var(--mono);font-size:11px;color:var(--ink3)">${vCosto!=null?'$'+vCosto.toLocaleString():'<span style="color:var(--ink4)">—</span>'}</td>
+      <td>${vMargen!=null?`<span style="font-family:var(--mono);font-size:11px;font-weight:600;color:${vMargen>=0?'var(--g)':'var(--r)'}">$${vMargen.toLocaleString()}${vMargenPct!=null?' ('+vMargenPct+'%)':''}</span>`:'<span style="color:var(--ink4);font-size:11px">—</span>'}</td>
       <td>${metodoPill(v.metodo)}</td>
       <td style="color:var(--ink2);font-size:12px">${v.vendedor}</td>
-      <td>${v.hasTI?`<span style="font-size:11px;color:var(--a);font-family:var(--mono)">$${v.tiValor} ← ${v.tiModelo}</span>`:'<span style="color:var(--ink4)">—</span>'}</td>
       <td>${estadoPill(v.estado)}</td>
       <td>${garDaysLeft!=null?`<span style="font-size:11px;font-family:var(--mono);color:${garOk?'var(--g)':'var(--r)'}">${garOk?garDaysLeft+'d':'Venc.'}</span>`:'<span style="color:var(--ink4)">—</span>'}</td>
       <td onclick="event.stopPropagation()">
@@ -1585,6 +1627,8 @@ function renderVentas(){
           <div class="expand-field"><div class="ef-label">Garantía fin</div><div class="ef-val">${v.garFin||'—'}</div></div>
           ${v.hasTI?`<div class="expand-field"><div class="ef-label">PDP storage</div><div class="ef-val">${v.tiStor||'—'}</div></div><div class="expand-field"><div class="ef-label">PDP IMEI</div><div class="ef-val" style="font-size:10px">${v.tiImei||'—'}</div></div>`:''}
           ${v.metodo==='Mixto'?`<div class="expand-field"><div class="ef-label">USD</div><div class="ef-val">$${v.montousd}</div></div><div class="expand-field"><div class="ef-label">ARS</div><div class="ef-val">$${v.montoars?.toLocaleString()}</div></div>`:''}
+          <div class="expand-field"><div class="ef-label">Costo producto</div><div class="ef-val">${vCosto!=null?'$'+vCosto.toLocaleString():'Sin costo cargado'}</div></div>
+          <div class="expand-field"><div class="ef-label">Ganancia bruta</div><div class="ef-val" style="color:${vMargen!=null?(vMargen>=0?'var(--g)':'var(--r)'):'var(--ink3)'}">${vMargen!=null?'$'+vMargen.toLocaleString():'—'}</div></div>
           <div class="expand-field" style="grid-column:1/-1"><div class="ef-label">Notas</div><div class="ef-val" style="font-size:11px;font-family:var(--fn)">${v.notas||'—'}</div></div>
         </div>
       </td>
@@ -1728,6 +1772,8 @@ function renderFlujo(){
   const mes=today().slice(0,7);
   document.getElementById('flujo-mes-label').textContent=new Date(mes+'-01').toLocaleString('es-AR',{month:'long',year:'numeric'});
   const ing=ventas.filter(v=>v.fecha.slice(0,7)===mes).reduce((s,v)=>s+v.precio,0);
+  const costoVentas=ventas.filter(v=>v.fecha.slice(0,7)===mes&&v.productCostUsd!=null).reduce((s,v)=>s+(v.productCostUsd||0),0);
+  const gananciaVentas=ventas.filter(v=>v.fecha.slice(0,7)===mes&&v.productCostUsd!=null).reduce((s,v)=>s+v.precio-(v.productCostUsd||0),0);
   const comp=stock.filter(s=>s.fecha.slice(0,7)===mes).reduce((s,p)=>s+(p.costo||0),0);
   const gast=gastos.filter(g=>g.fecha.slice(0,7)===mes).reduce((s,g)=>s+(g.moneda==='USD'?g.monto:g.monto/fxRate),0);
   const com=ventas.filter(v=>v.vendedor==='Hermano'&&v.fecha.slice(0,7)===mes).reduce((s,v)=>s+v.precio*.05,0);
@@ -1764,7 +1810,7 @@ function renderReportes(){
   const modelCount={};ventas.forEach(v=>{const m=v.producto.split(' ').slice(0,3).join(' ');modelCount[m]=(modelCount[m]||0)+1;});
   const topM=Object.entries(modelCount).sort((a,b)=>b[1]-a[1]).slice(0,5);
   const maxM=topM[0]?.[1]||1;
-  const catG={};ventas.forEach(v=>{const s=stock.find(x=>x.id===v.stockId);const cat=s?.cat||v.producto.split(' ')[0];catG[cat]=(catG[cat]||0)+v.precio-(s?.costo||0);});
+  const catG={};ventas.forEach(v=>{const s=stock.find(x=>x.id===v.stockId);const cat=s?.cat||v.producto.split(' ')[0];const costo=v.productCostUsd!=null?v.productCostUsd:(s?.costo||0);catG[cat]=(catG[cat]||0)+v.precio-costo;});
   const topC=Object.entries(catG).sort((a,b)=>b[1]-a[1]);const maxC=topC[0]?.[1]||1;
   const catGasto={};gastos.forEach(g=>{catGasto[g.cat]=(catGasto[g.cat]||0)+(g.moneda==='USD'?g.monto:g.monto/fxRate);});
   const topG=Object.entries(catGasto).sort((a,b)=>b[1]-a[1]);const maxG=topG[0]?.[1]||1;
@@ -1806,6 +1852,8 @@ function openDrawer(type){
     document.getElementById('v-ti-valor').value='';
     document.getElementById('v-fecha').value=today();
     const vzEl=document.getElementById('v-zona');if(vzEl)vzEl.value='';
+    const vcReset=document.getElementById('v-costo-prod');if(vcReset)vcReset.value='';
+    const vmp=document.getElementById('v-margin-preview');if(vmp)vmp.style.display='none';
     document.getElementById('v-gar-ini').value=today();
     document.getElementById('v-gar-dias').value=30;
     calcGarantia();
@@ -1871,6 +1919,10 @@ function onVProdChange(){
   if(v==='__manual'){const m=document.createElement('input');m.className='inp';m.type='text';m.placeholder='Ej: iPhone 15 Pro Max 256GB Negro';m.id='v-prod-manual';document.getElementById('v-prod').replaceWith(m);m.focus();return;}
   const s=stock.find(x=>x.id===v);
   if(s&&!document.getElementById('v-precio').value)document.getElementById('v-precio').value=s.precio;
+  // Auto-suggest product cost from stock (only if field is empty)
+  const vcField=document.getElementById('v-costo-prod');
+  if(s&&vcField&&!vcField.value&&s.costo){vcField.value=s.costo;}
+  calcVentaMargin();
   // Show auto-accessories notice for iPhone/phone categories
   const notice=document.getElementById('v-acc-notice');
   if(notice&&s){
@@ -1882,6 +1934,23 @@ function onVProdChange(){
       const warn=checkIPhoneAccStock(modelBase,true,true);
       if(warn)setTimeout(()=>toast(warn),400);
     }
+  }
+}
+function calcVentaMargin(){
+  const precio=parseFloat(document.getElementById('v-precio')?.value)||0;
+  const costo=parseFloat(document.getElementById('v-costo-prod')?.value);
+  const prev=document.getElementById('v-margin-preview');
+  if(!prev)return;
+  if(!isNaN(costo)&&costo>0&&precio>0){
+    const margen=precio-costo;
+    const pct=Math.round(margen/costo*100);
+    prev.style.display='block';
+    prev.style.background=margen>=0?'var(--g-bg)':'var(--r-bg)';
+    prev.style.borderColor=margen>=0?'#c0e8c8':'#f5c9c5';
+    prev.style.color=margen>=0?'var(--g)':'var(--r)';
+    prev.textContent=`Costo $${costo} → Precio $${precio} → Ganancia $${margen} (${pct}%)`;
+  } else {
+    prev.style.display='none';
   }
 }
 function calcBalance(){
@@ -1911,6 +1980,11 @@ function saveVenta(){
   const garDias=parseInt(document.getElementById('v-gar-dias').value)||30;
   let garFin='';if(garIni){const d=new Date(garIni);d.setDate(d.getDate()+garDias);garFin=d.toISOString().slice(0,10);}
   const prodText=st?`${st.modelo} ${st.storage||''} ${st.color||''}`.trim():((prodEl&&prodEl.value)||'Producto manual');
+  // Auto-suggest cost from stock if not manually entered
+  const manualCosto = document.getElementById('v-costo-prod')?.value;
+  const productCostUsd = manualCosto!==''&&manualCosto!=null
+    ? (parseFloat(manualCosto)||null)
+    : (st?.costo||null);
   const obj={
     id:editId||uid(),fecha:document.getElementById('v-fecha').value||today(),
     stockId,producto:prodText,
@@ -1922,6 +1996,7 @@ function saveVenta(){
     vendedor:document.getElementById('v-vendedor').value,
     estado:document.getElementById('v-estado').value,
     entEstado:'pendiente',
+    productCostUsd,
     hasTI,tiValor,
     tiModelo:hasTI?document.getElementById('v-ti-modelo').value:'',
     tiStor:hasTI?document.getElementById('v-ti-stor')?.value||'':'',
@@ -2029,7 +2104,9 @@ function editVenta(id){
     document.getElementById('v-gar-fin').value=v.garFin||'';
     document.getElementById('v-notas').value=v.notas||'';
     const vzEdit=document.getElementById('v-zona');if(vzEdit)vzEdit.value=v.zona||'';
+    const vcEl=document.getElementById('v-costo-prod');if(vcEl)vcEl.value=v.productCostUsd!=null?v.productCostUsd:'';
     if(v.hasTI){document.getElementById('v-ti-toggle').checked=true;toggleTI();document.getElementById('v-ti-modelo').value=v.tiModelo||'';document.getElementById('v-ti-valor').value=v.tiValor||'';}
+    calcVentaMargin();
   },50);
 }
 
