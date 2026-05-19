@@ -519,6 +519,10 @@ input:checked+.toggle-slider:before{transform:translateX(16px)}
   <div class="sn" onclick="go('walist',this)">💬<div class="sn-tip">Generar lista WhatsApp</div></div>
   <div class="sn" onclick="go('ventas_ia',this)" id="sn-ia" style="position:relative">🤖<div class="sn-tip">Ventas IA</div><div class="sn-badge" id="ia-badge" style="display:none"></div></div>
   <div class="side-sep"></div>
+  <div class="sn" onclick="go('deudas',this)" id="sn-deudas">
+    ⇅<div class="sn-tip">Deudas (me deben / debo)</div>
+    <div class="sn-badge" id="deudas-badge" style="display:none"></div>
+  </div>
   <div class="sn" onclick="go('flujo',this)">∿<div class="sn-tip">Flujo de fondos</div></div>
   <div class="sn" onclick="go('reportes',this)">≡<div class="sn-tip">Reportes</div></div>
 </div>
@@ -796,6 +800,63 @@ input:checked+.toggle-slider:before{transform:translateX(16px)}
       <div class="sec"><h2>Flujo de fondos — <span style="font-weight:400;color:var(--ink3)" id="flujo-mes-label"></span></h2></div>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px" id="flujo-top"></div>
       <div class="flow-sections" id="flujo-body"></div>
+    </div>
+
+    <!-- ══ DEUDAS ══ -->
+    <div class="page" id="pg-deudas">
+
+      <!-- Summary metrics -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:20px" id="deudas-metrics"></div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px">
+
+        <!-- ME DEBEN -->
+        <div>
+          <div class="sec">
+            <div>
+              <h2 style="font-size:14px">💰 Me deben (cobros pendientes)</h2>
+              <div style="font-size:11px;color:var(--ink3);margin-top:2px">Clientes que recibieron el producto y aún no pagaron</div>
+            </div>
+            <button class="btn btn-ink btn-sm" onclick="openDeudaDrawer('cobro')">+ Agregar</button>
+          </div>
+          <div class="tbl-outer">
+            <table><thead><tr><th>Descripción</th><th>Monto</th><th>Fecha</th><th>Estado</th><th></th></tr></thead>
+            <tbody id="cobros-tbody"></tbody></table>
+          </div>
+        </div>
+
+        <!-- DEBO -->
+        <div>
+          <div class="sec">
+            <div>
+              <h2 style="font-size:14px">📤 Debo (pagos pendientes)</h2>
+              <div style="font-size:11px;color:var(--ink3);margin-top:2px">Lo que debo a proveedores u otros</div>
+            </div>
+            <button class="btn btn-ink btn-sm" onclick="openDeudaDrawer('pago')">+ Agregar</button>
+          </div>
+          <div class="tbl-outer">
+            <table><thead><tr><th>Descripción</th><th>Monto</th><th>Fecha</th><th>Estado</th><th></th></tr></thead>
+            <tbody id="pagos-tbody"></tbody></table>
+          </div>
+        </div>
+      </div>
+
+      <!-- CELULARES PENDIENTES DE ENTREGA (parte de pago prometida) -->
+      <div class="sec">
+        <div>
+          <h2 style="font-size:14px">📱 Celulares que me deben entregar</h2>
+          <div style="font-size:11px;color:var(--ink3);margin-top:2px">Partes de pago acordadas que todavía no recibí</div>
+        </div>
+        <button class="btn btn-ink btn-sm" onclick="openPendingTradeinDrawer()">+ Agregar</button>
+      </div>
+      <div class="tbl-outer">
+        <table>
+          <thead><tr>
+            <th>Cliente</th><th>Modelo</th><th>Storage</th><th>Color</th><th>Valor acordado</th><th>Fecha acordada</th><th>Estado</th><th></th>
+          </tr></thead>
+          <tbody id="pending-tradein-tbody"></tbody>
+        </table>
+      </div>
     </div>
 
     <!-- ══ REPORTES ══ -->
@@ -1477,6 +1538,21 @@ let iPhoneAccByModel = [
 // Accessory movements log
 let accMovements = [];
 
+// Debts: what customers owe me (me deben)
+let cobros = [
+  {id:uid(),tipo:'cobro',descripcion:'iPhone 15 Pro Max — Lucas Pérez',monto:1050,moneda:'USD',fecha:today(),vencimiento:'',estado:'pendiente',notas:'Entregado, pago pendiente',linkedVentaId:''},
+];
+
+// Debts: what I owe suppliers (debo)
+let pagos = [
+  {id:uid(),tipo:'pago',descripcion:'Deuda Miguel CABA — 3 iPhone',monto:1800,moneda:'USD',fecha:today(),vencimiento:'',estado:'pendiente',notas:'Pago acordado para el viernes',linkedProvId:''},
+];
+
+// Pending trade-in phones (celulares que me deben entregar)
+let pendingTradein = [
+  {id:uid(),cliente:'Ejemplo cliente',telefono:'',modelo:'iPhone 12',storage:'64GB',color:'Negro',bat:null,imei:'',valorAcordado:220,fechaAcordada:'',estado:'pendiente',notas:'Acordó entregar el lunes',linkedVentaId:'',createdAt:today()},
+];
+
 // Pending deliveries (replaces old entregas-from-ventas approach)
 let pendingDeliveries = [
   {id:uid(),linkedSaleId:'',linkedPurchaseNeedId:'',brand:'Apple',category:'iPhone',model:'iPhone 15 Pro Max',storage:'256GB',color:'Negro Titanio',productLabel:'Apple iPhone 15 Pro Max 256GB Negro Titanio',modelBase:'iPhone 15 Pro Max',clientName:'Lucas Pérez',clientPhone:'+54 9 11 5555-1111',estimatedDate:today(),estimatedTime:'',zone:'Palermo',deliveryMethod:'moto',seller:'Pedro',status:'pendiente',includesCase:true,includesGlass:true,includesExtraCable:false,notes:'',createdAt:today(),deliveredAt:null},
@@ -1485,14 +1561,14 @@ let pendingDeliveries = [
 // ════════════════════════════════════════
 // NAVIGATION
 // ════════════════════════════════════════
-const pageTitles={rapido:'Modo rápido',stock:'Stock',ventas:'Ventas',tradein:'Parte de pago',gastos:'Gastos',accesorios:'Accesorios',clientes:'Clientes',proveedores:'Proveedores',flujo:'Flujo de fondos',reportes:'Reportes',entregas:'Entregas pendientes',contenido:'¿Qué posteo hoy?',precios:'Precios y márgenes',walist:'Generar lista WhatsApp',ventas_ia:'Centro de ventas IA',compras:'Compras pendientes',sup_search:'Búsqueda de precios'};
+const pageTitles={rapido:'Modo rápido',stock:'Stock',ventas:'Ventas',tradein:'Parte de pago',gastos:'Gastos',accesorios:'Accesorios',clientes:'Clientes',proveedores:'Proveedores',flujo:'Flujo de fondos',reportes:'Reportes',entregas:'Entregas pendientes',contenido:'¿Qué posteo hoy?',precios:'Precios y márgenes',walist:'Generar lista WhatsApp',ventas_ia:'Centro de ventas IA',compras:'Compras pendientes',sup_search:'Búsqueda de precios',deudas:'Deudas — cobros y pagos'};
 function go(page,navEl){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.sn').forEach(n=>n.classList.remove('active'));
   const pg=document.getElementById('pg-'+page);if(pg)pg.classList.add('active');
   if(navEl)navEl.classList.add('active');
   document.getElementById('pg-title').textContent=pageTitles[page]||page;
-  const renders={rapido:renderDash,stock:renderStock,ventas:renderVentas,tradein:renderTradein,gastos:renderGastos,accesorios:renderAccesorios,clientes:renderClientes,proveedores:renderProveedores,flujo:renderFlujo,reportes:renderReportes,entregas:renderEntregas,contenido:renderContenido,precios:renderPrecios,walist:renderWalist,ventas_ia:renderVentasIA,compras:renderCompras,sup_search:renderSupSearch};
+  const renders={rapido:renderDash,stock:renderStock,ventas:renderVentas,tradein:renderTradein,gastos:renderGastos,accesorios:renderAccesorios,clientes:renderClientes,proveedores:renderProveedores,flujo:renderFlujo,reportes:renderReportes,entregas:renderEntregas,contenido:renderContenido,precios:renderPrecios,walist:renderWalist,ventas_ia:renderVentasIA,compras:renderCompras,sup_search:renderSupSearch,deudas:renderDeudas};
   if(renders[page])renders[page]();
 }
 
@@ -1512,10 +1588,21 @@ function renderDash(){
     <div class="mcard"><div class="mcard-label">Stock disponible</div><div class="mcard-val ink2">${disp}</div><div class="mcard-sub">productos</div></div>
     <div class="mcard"><div class="mcard-label">Pagos pendientes</div><div class="mcard-val ${pendPago?'amber':'ink2'}">$${pendPago.toLocaleString()}</div><div class="mcard-sub">sin entregar</div></div>`;
   const low=accesorios.filter(a=>a.qty<a.min);
+  // Add cobros alert
+  const cobrosPend=cobros.filter(x=>x.estado==='pendiente');
+  const tiPend=pendingTradein.filter(x=>x.estado==='pendiente');
+  const deudasAlerts=[];
+  if(cobrosPend.length){
+    const total=cobrosPend.reduce((s,x)=>s+(x.moneda==='USD'?x.monto:x.monto/fxRate),0);
+    deudasAlerts.push(`<div class="alert alert-amber"><span>💰</span> Te deben <strong>$${Math.round(total).toLocaleString()} USD</strong> — ${cobrosPend.length} cobro${cobrosPend.length>1?'s':''} pendiente${cobrosPend.length>1?'s':''} <button class="btn btn-ghost btn-xs" onclick="go('deudas',null)" style="margin-left:8px">Ver →</button></div>`);
+  }
+  if(tiPend.length){
+    deudasAlerts.push(`<div class="alert alert-amber"><span>📱</span> ${tiPend.length} celular${tiPend.length>1?'es':''} que te deben entregar <button class="btn btn-ghost btn-xs" onclick="go('deudas',null)" style="margin-left:8px">Ver →</button></div>`);
+  }
   const alertsWrap=document.getElementById('dash-alerts');
-  if(alertsWrap) alertsWrap.innerHTML=low.length
-    ? `<div style="margin-top:8px;padding:9px 12px;background:var(--r-bg);border:1px solid #e8b0a0;border-radius:8px;font-size:12px;color:var(--r)">⚠ Stock bajo: ${low.map(a=>a.tipo+' ('+a.qty+')').join(', ')}</div>`
-    : '';
+  if(alertsWrap) alertsWrap.innerHTML=
+    deudasAlerts.join('')+
+    (low.length?`<div class="alert alert-red"><span>⚠</span> Stock bajo: ${low.map(a=>a.tipo+' ('+a.qty+')').join(', ')}</div>`:'');
   document.getElementById('dash-recent').innerHTML=ventas.slice(0,6).map(v=>`
     <div class="recent-row" onclick="go('ventas',null)">
       <div class="rr-left">
@@ -2570,7 +2657,45 @@ function markDeliveryStatus(id, status) {
       if(cable&&cable.qty>0)cable.qty--;
     }
     updateAccBadge();
-    toast('✓ Entregada — accesorios descontados');
+
+    // ── Auto-create sale if not linked to one ──
+    if(!d.linkedSaleId) {
+      const newVenta={
+        id:uid(),fecha:today(),stockId:'',producto:d.productLabel||d.model||'Producto',
+        cliente:d.clientName||'',precio:0,metodo:'USD',montousd:0,montoars:0,
+        vendedor:d.seller||'Pedro',estado:'Entregado',entEstado:'entregado',
+        productCostUsd:null,hasTI:false,tiValor:0,tiModelo:'',tiStor:'',tiColor:'',
+        tiBat:null,tiImei:'',garIni:today(),garDias:30,
+        garFin:(()=>{const dt=new Date();dt.setDate(dt.getDate()+30);return dt.toISOString().slice(0,10);})(),
+        notas:`Creada automáticamente desde entrega. Verificar precio.`,
+        zona:d.zone||'',costoPendiente:true,accCostoExtra:0,
+      };
+      d.linkedSaleId=newVenta.id;
+      ventas.unshift(newVenta);
+      dbUpsert('ventas',newVenta);
+      // Ask if they were paid
+      setTimeout(()=>{
+        const paid=confirm(`¿${d.clientName||'El cliente'} pagó por ${d.productLabel||d.model}?
+
+Sí = marcar cobrado
+No = agregar a cobros pendientes`);
+        if(!paid){
+          const cobro={id:uid(),tipo:'cobro',descripcion:`${d.productLabel||d.model} — ${d.clientName||''}`,monto:0,moneda:'USD',fecha:today(),vencimiento:'',estado:'pendiente',notas:'Entregado sin cobrar. Precio a confirmar.',linkedVentaId:newVenta.id};
+          cobros.unshift(cobro);
+          dbUpsert('cobros',cobro);
+          updateDeudasBadge();
+          toast('📋 Agregado a cobros pendientes');
+        } else {
+          const precio=parseFloat(prompt('¿Cuánto cobró? (USD)','')||'0');
+          if(precio>0){newVenta.precio=precio;newVenta.montousd=precio;newVenta.costoPendiente=false;dbUpsert('ventas',newVenta);}
+          toast('✓ Entregada y cobrada');
+        }
+        if(document.getElementById('pg-ventas').classList.contains('active'))renderVentas();
+        renderDash();
+      },300);
+    } else {
+      toast('✓ Entregada — accesorios descontados');
+    }
   } else if(status==='en_camino') {
     toast('↗ Marcado en camino');
   } else if(status==='cancelada') {
@@ -3889,6 +4014,225 @@ function getPendingCostSales() {
 // ════════════════════════════════════════
 // SUPABASE TABLE MAP EXTENSION
 // ════════════════════════════════════════
+
+// ════════════════════════════════════════
+// DEUDAS — cobros, pagos, pending tradein
+// ════════════════════════════════════════
+function renderDeudas() {
+  // Metrics
+  const totalCobros = cobros.filter(x=>x.estado==='pendiente').reduce((s,x)=>s+(x.moneda==='USD'?x.monto:x.monto/fxRate),0);
+  const totalPagos  = pagos.filter(x=>x.estado==='pendiente').reduce((s,x)=>s+(x.moneda==='USD'?x.monto:x.monto/fxRate),0);
+  const pendTI      = pendingTradein.filter(x=>x.estado==='pendiente').length;
+  const bal         = totalCobros - totalPagos;
+  document.getElementById('deudas-metrics').innerHTML=`
+    <div class="metric"><div class="metric-label">Me deben</div>
+      <div class="metric-val green">$${Math.round(totalCobros).toLocaleString()}</div>
+      <div class="metric-sub">USD · ${cobros.filter(x=>x.estado==='pendiente').length} cobros</div></div>
+    <div class="metric"><div class="metric-label">Debo</div>
+      <div class="metric-val red">$${Math.round(totalPagos).toLocaleString()}</div>
+      <div class="metric-sub">USD · ${pagos.filter(x=>x.estado==='pendiente').length} pagos</div></div>
+    <div class="metric"><div class="metric-label">Balance neto</div>
+      <div class="metric-val ${bal>=0?'green':'red'}">$${Math.round(Math.abs(bal)).toLocaleString()}</div>
+      <div class="metric-sub">${bal>=0?'a favor':'en contra'} · ${pendTI} cel. pendientes</div></div>`;
+
+  // Cobros
+  const ct = document.getElementById('cobros-tbody');
+  if(ct) ct.innerHTML = cobros.map(x=>{
+    const venc = x.vencimiento&&new Date()<new Date(x.vencimiento)?`<span style="font-size:10px;color:var(--a);font-family:var(--mo)">${x.vencimiento}</span>`:'';
+    return`<tr>
+      <td><div style="font-weight:500">${x.descripcion}</div>${x.notas?`<div style="font-size:10px;color:var(--ink3)">${x.notas}</div>`:''}</td>
+      <td style="font-family:var(--mo);font-weight:700;color:var(--g)">$${x.monto.toLocaleString()} <span style="font-size:10px;font-weight:400">${x.moneda}</span></td>
+      <td style="font-size:11px;color:var(--ink3)">${x.fecha}${venc?'<br>vence '+x.vencimiento:''}</td>
+      <td>${x.estado==='pendiente'?'<span class="pill pill-amber">Pendiente</span>':'<span class="pill pill-green">Cobrado</span>'}</td>
+      <td>
+        <div style="display:flex;gap:4px">
+          ${x.estado==='pendiente'?`<button class="btn btn-green btn-xs" onclick="markDeuda('cobros','${x.id}','cobrado')">✓ Cobré</button>`:''}
+          <button class="btn btn-ghost btn-xs" onclick="editDeuda('cobros','${x.id}')">✎</button>
+          <button class="btn btn-ghost-red btn-xs" onclick="deleteDeuda('cobros','${x.id}')">✕</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--ink3);padding:16px">Sin cobros pendientes ✓</td></tr>';
+
+  // Pagos
+  const pt = document.getElementById('pagos-tbody');
+  if(pt) pt.innerHTML = pagos.map(x=>`<tr>
+      <td><div style="font-weight:500">${x.descripcion}</div>${x.notas?`<div style="font-size:10px;color:var(--ink3)">${x.notas}</div>`:''}</td>
+      <td style="font-family:var(--mo);font-weight:700;color:var(--r)">$${x.monto.toLocaleString()} <span style="font-size:10px;font-weight:400">${x.moneda}</span></td>
+      <td style="font-size:11px;color:var(--ink3)">${x.fecha}${x.vencimiento?'<br>vence '+x.vencimiento:''}</td>
+      <td>${x.estado==='pendiente'?'<span class="pill pill-amber">Pendiente</span>':'<span class="pill pill-green">Pagado</span>'}</td>
+      <td>
+        <div style="display:flex;gap:4px">
+          ${x.estado==='pendiente'?`<button class="btn btn-green btn-xs" onclick="markDeuda('pagos','${x.id}','pagado')">✓ Pagué</button>`:''}
+          <button class="btn btn-ghost btn-xs" onclick="editDeuda('pagos','${x.id}')">✎</button>
+          <button class="btn btn-ghost-red btn-xs" onclick="deleteDeuda('pagos','${x.id}')">✕</button>
+        </div>
+      </td>
+    </tr>`).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--ink3);padding:16px">Sin pagos pendientes ✓</td></tr>';
+
+  // Pending tradein
+  const ptt = document.getElementById('pending-tradein-tbody');
+  if(ptt) ptt.innerHTML = pendingTradein.map(p=>{
+    const dias = p.fechaAcordada ? Math.ceil((new Date(p.fechaAcordada)-new Date())/(86400000)) : null;
+    const overdue = dias!==null && dias<0;
+    return`<tr style="${overdue?'background:rgba(255,64,96,.03)':''}">
+      <td><div style="font-weight:600">${p.cliente}</div>${p.telefono?`<div style="font-size:10px;color:var(--ink3);font-family:var(--mo)">${p.telefono}</div>`:''}</td>
+      <td style="font-weight:600">${p.modelo||'—'}</td>
+      <td style="font-family:var(--mo);font-size:11px">${p.storage||'—'}</td>
+      <td>${p.color||'—'}</td>
+      <td style="font-family:var(--mo);font-weight:700;color:var(--a)">${p.valorAcordado?'$'+p.valorAcordado:'—'}</td>
+      <td style="font-size:11px;color:${overdue?'var(--r)':'var(--ink3)'}">${p.fechaAcordada||'—'}${overdue?' ⚠ vencida':''}</td>
+      <td>${p.estado==='pendiente'?'<span class="pill pill-amber">Pendiente</span>':p.estado==='recibido'?'<span class="pill pill-green">Recibido</span>':'<span class="pill" style="background:var(--bg);color:var(--ink3)">Cancelado</span>'}</td>
+      <td>
+        <div style="display:flex;gap:4px">
+          ${p.estado==='pendiente'?`<button class="btn btn-green btn-xs" onclick="receivePendingTradein('${p.id}')">✓ Recibí</button>`:''}
+          <button class="btn btn-ghost-red btn-xs" onclick="deletePendingTradein('${p.id}')">✕</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="8" style="text-align:center;color:var(--ink3);padding:16px">Sin celulares pendientes ✓</td></tr>';
+
+  updateDeudasBadge();
+}
+
+function openDeudaDrawer(tipo) {
+  document.getElementById('deuda-id').value='';
+  document.getElementById('deuda-tipo').value=tipo;
+  document.getElementById('drawer-deuda-title').textContent=tipo==='cobro'?'Agregar cobro pendiente':'Agregar pago pendiente';
+  ['deuda-desc','deuda-notas'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  document.getElementById('deuda-monto').value='';
+  document.getElementById('deuda-fecha').value=today();
+  document.getElementById('deuda-vence').value='';
+  document.getElementById('drawer-deuda').classList.add('open');
+  setTimeout(()=>document.getElementById('deuda-desc')?.focus(),100);
+}
+
+function saveDeuda() {
+  const id = document.getElementById('deuda-id').value;
+  const tipo = document.getElementById('deuda-tipo').value;
+  const arr = tipo==='cobro'?cobros:pagos;
+  const obj = {
+    id:id||uid(), tipo,
+    descripcion:document.getElementById('deuda-desc').value||'Sin descripción',
+    monto:parseFloat(document.getElementById('deuda-monto').value)||0,
+    moneda:document.getElementById('deuda-moneda').value,
+    fecha:document.getElementById('deuda-fecha').value||today(),
+    vencimiento:document.getElementById('deuda-vence').value||'',
+    estado:'pendiente',
+    notas:document.getElementById('deuda-notas').value||'',
+    linkedVentaId:'',
+  };
+  if(id){const i=arr.findIndex(x=>x.id===id);if(i>=0)arr[i]=obj;}
+  else arr.unshift(obj);
+  closeDrawer('deuda');
+  renderDeudas();
+  updateDeudasBadge();
+  dbUpsert(tipo==='cobro'?'cobros':'pagos', obj);
+  toast(`✓ ${tipo==='cobro'?'Cobro':'Pago'} registrado`);
+}
+
+function editDeuda(store, id) {
+  const arr = store==='cobros'?cobros:pagos;
+  const x = arr.find(a=>a.id===id); if(!x)return;
+  document.getElementById('deuda-id').value=id;
+  document.getElementById('deuda-tipo').value=x.tipo||store.slice(0,-1);
+  document.getElementById('drawer-deuda-title').textContent=store==='cobros'?'Editar cobro':'Editar pago';
+  document.getElementById('deuda-desc').value=x.descripcion||'';
+  document.getElementById('deuda-monto').value=x.monto||'';
+  document.getElementById('deuda-moneda').value=x.moneda||'USD';
+  document.getElementById('deuda-fecha').value=x.fecha||today();
+  document.getElementById('deuda-vence').value=x.vencimiento||'';
+  document.getElementById('deuda-notas').value=x.notas||'';
+  document.getElementById('drawer-deuda').classList.add('open');
+}
+
+function markDeuda(store, id, nuevoEstado) {
+  const arr = store==='cobros'?cobros:pagos;
+  const x = arr.find(a=>a.id===id); if(!x)return;
+  x.estado=nuevoEstado;
+  renderDeudas(); updateDeudasBadge();
+  dbUpsert(store, x);
+  toast(`✓ Marcado como ${nuevoEstado}`);
+}
+
+function deleteDeuda(store, id) {
+  const arr = store==='cobros'?cobros:pagos;
+  const i = arr.findIndex(x=>x.id===id); if(i<0)return;
+  arr.splice(i,1);
+  renderDeudas(); updateDeudasBadge();
+  dbDelete(store,'id',id);
+  toast('Eliminado');
+}
+
+function openPendingTradeinDrawer(prefill) {
+  document.getElementById('pti-id').value='';
+  ['pti-cliente','pti-tel','pti-modelo','pti-storage','pti-color','pti-bat','pti-imei','pti-notas'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  document.getElementById('pti-valor').value='';
+  document.getElementById('pti-fecha').value='';
+  if(prefill){
+    if(prefill.cliente) document.getElementById('pti-cliente').value=prefill.cliente;
+    if(prefill.modelo) document.getElementById('pti-modelo').value=prefill.modelo;
+  }
+  document.getElementById('drawer-pending-tradein').classList.add('open');
+  setTimeout(()=>document.getElementById('pti-cliente')?.focus(),100);
+}
+
+function savePendingTradein() {
+  const id=document.getElementById('pti-id').value;
+  const obj={
+    id:id||uid(),
+    cliente:document.getElementById('pti-cliente').value||'',
+    telefono:document.getElementById('pti-tel').value||'',
+    modelo:document.getElementById('pti-modelo').value||'',
+    storage:document.getElementById('pti-storage').value||'',
+    color:document.getElementById('pti-color').value||'',
+    bat:document.getElementById('pti-bat').value?parseInt(document.getElementById('pti-bat').value):null,
+    imei:document.getElementById('pti-imei').value||'',
+    valorAcordado:parseFloat(document.getElementById('pti-valor').value)||0,
+    fechaAcordada:document.getElementById('pti-fecha').value||'',
+    estado:'pendiente',
+    notas:document.getElementById('pti-notas').value||'',
+    linkedVentaId:'',createdAt:today(),
+  };
+  if(!obj.cliente&&!obj.modelo){toast('⚠ Ingresá al menos cliente o modelo');return;}
+  if(id){const i=pendingTradein.findIndex(x=>x.id===id);if(i>=0)pendingTradein[i]=obj;}
+  else pendingTradein.unshift(obj);
+  closeDrawer('pending-tradein');
+  renderDeudas(); updateDeudasBadge();
+  dbUpsert('pending_tradein', obj);
+  toast('✓ Celular pendiente registrado');
+}
+
+function receivePendingTradein(id) {
+  const p=pendingTradein.find(x=>x.id===id); if(!p)return;
+  p.estado='recibido';
+  // Auto-add to stock as used + to tradeins
+  const tiStock={id:uid(),cat:'iPhone',modelo:p.modelo||'iPhone',storage:p.storage||'',color:p.color||'',cond:'Usado',bat:p.bat,imei:p.imei||'',costo:p.valorAcordado||0,precio:Math.round((p.valorAcordado||0)*1.3),precioReventa:Math.round((p.valorAcordado||0)*1.15),prov:'Trade-in ('+p.cliente+')',fecha:today(),estado:'Disponible',gar:30,notas:'Parte de pago pendiente — recibido',origin:'tradein'};
+  stock.unshift(tiStock);
+  tradeins.unshift({id:uid(),fecha:today(),cli:p.cliente,modelo:p.modelo,stor:p.storage,color:p.color,bat:p.bat,imei:p.imei,valor:p.valorAcordado,ventaRef:'Parte de pago pendiente',notas:p.notas});
+  renderDeudas(); updateDeudasBadge();
+  if(document.getElementById('pg-stock').classList.contains('active'))renderStock();
+  dbUpsert('pending_tradein',p);
+  dbUpsert('stock',tiStock);
+  toast(`✓ ${p.modelo||'Celular'} recibido y agregado al stock`);
+}
+
+function deletePendingTradein(id) {
+  const i=pendingTradein.findIndex(x=>x.id===id); if(i<0)return;
+  pendingTradein.splice(i,1);
+  renderDeudas(); updateDeudasBadge();
+  dbDelete('pending_tradein','id',id);
+  toast('Eliminado');
+}
+
+function updateDeudasBadge() {
+  const n = cobros.filter(x=>x.estado==='pendiente').length
+          + pagos.filter(x=>x.estado==='pendiente').length
+          + pendingTradein.filter(x=>x.estado==='pendiente').length;
+  const b=document.getElementById('deudas-badge');
+  if(b){b.style.display=n?'block':'none';b.textContent=n||'';}
+}
+
 // ════════════════════════════════════════════════════════════════
 // SUPABASE ENGINE v4.1 — fetch-native, no external library
 // Works in any browser. Open as a local HTML file.
@@ -4038,6 +4382,9 @@ const TABLE_MAP = {
   pending_deliveries:    { get: ()=>pendingDeliveries,    set: v=>{pendingDeliveries=v;},    pk:'id' },
   iphone_acc_by_model:   { get: ()=>iPhoneAccByModel,     set: v=>{iPhoneAccByModel=v;},     pk:'id' },
   acc_movements:         { get: ()=>accMovements,          set: v=>{accMovements=v;},          pk:'id' },
+  cobros:                { get: ()=>cobros,                set: v=>{cobros=v;},                pk:'id' },
+  pagos:                 { get: ()=>pagos,                 set: v=>{pagos=v;},                 pk:'id' },
+  pending_tradein:       { get: ()=>pendingTradein,        set: v=>{pendingTradein=v;},        pk:'id' },
 };
 
 // ── Load all data ──
@@ -4145,7 +4492,7 @@ async function bootApp() {
 }
 
 function bootLocalMode() {
-  renderDash(); updateAccBadge(); updateEntBadge(); updateIABadge(); updateComprasBadge(); renderIPhoneAccessories();
+  renderDash(); updateAccBadge(); updateEntBadge(); updateIABadge(); updateComprasBadge(); renderIPhoneAccessories(); updateDeudasBadge();
 }
 
 // ── Auth UI functions ──
@@ -4427,6 +4774,83 @@ setEntEstado = async function(id, estado) {
   <div class="drawer-footer">
     <button class="btn btn-green" style="flex:1" onclick="saveIPhoneAccMov()">Guardar</button>
     <button class="btn btn-ghost" onclick="closeDrawer('iphone-acc')">Cancelar</button>
+  </div>
+</div>
+</div>
+
+<!-- DEUDA DRAWER -->
+<div class="drawer-overlay" id="drawer-deuda" onclick="if(event.target===this)closeDrawer('deuda')">
+<div class="drawer">
+  <div class="drawer-handle"></div>
+  <div class="drawer-header">
+    <div class="drawer-title" id="drawer-deuda-title">Agregar cobro pendiente</div>
+    <button class="btn btn-ghost btn-xs" onclick="closeDrawer('deuda')">✕</button>
+  </div>
+  <div class="drawer-body">
+    <input type="hidden" id="deuda-id">
+    <input type="hidden" id="deuda-tipo">
+    <div class="fgrid" style="gap:10px">
+      <div class="field"><label class="inp-label">Descripción</label>
+        <input class="inp" id="deuda-desc" placeholder="Ej: iPhone 15 — Lucas Pérez"></div>
+      <div class="fgrid fg2" style="gap:10px">
+        <div class="field"><label class="inp-label">Monto</label>
+          <input class="inp" type="number" id="deuda-monto" step="0.01" placeholder="0"></div>
+        <div class="field"><label class="inp-label">Moneda</label>
+          <select class="inp" id="deuda-moneda"><option>USD</option><option>ARS</option></select></div>
+      </div>
+      <div class="fgrid fg2" style="gap:10px">
+        <div class="field"><label class="inp-label">Fecha</label>
+          <input class="inp" type="date" id="deuda-fecha"></div>
+        <div class="field"><label class="inp-label">Vencimiento (opcional)</label>
+          <input class="inp" type="date" id="deuda-vence"></div>
+      </div>
+      <div class="field"><label class="inp-label">Notas</label>
+        <textarea class="inp" id="deuda-notas" rows="2" placeholder="Opcional..."></textarea></div>
+    </div>
+  </div>
+  <div class="drawer-footer">
+    <button class="btn btn-green" style="flex:1" onclick="saveDeuda()">Guardar</button>
+    <button class="btn btn-ghost" onclick="closeDrawer('deuda')">Cancelar</button>
+  </div>
+</div>
+</div>
+
+<!-- PENDING TRADEIN DRAWER -->
+<div class="drawer-overlay" id="drawer-pending-tradein" onclick="if(event.target===this)closeDrawer('pending-tradein')">
+<div class="drawer">
+  <div class="drawer-handle"></div>
+  <div class="drawer-header">
+    <div class="drawer-title">Celular pendiente de entrega</div>
+    <button class="btn btn-ghost btn-xs" onclick="closeDrawer('pending-tradein')">✕</button>
+  </div>
+  <div class="drawer-body">
+    <input type="hidden" id="pti-id">
+    <div class="fgrid fg2" style="gap:10px;margin-bottom:0">
+      <div class="field"><label class="inp-label">Cliente</label>
+        <input class="inp" id="pti-cliente" placeholder="Nombre del cliente"></div>
+      <div class="field"><label class="inp-label">Teléfono</label>
+        <input class="inp" type="tel" id="pti-tel" placeholder="+54 9 11..."></div>
+      <div class="field"><label class="inp-label">Modelo</label>
+        <input class="inp" id="pti-modelo" placeholder="iPhone 12"></div>
+      <div class="field"><label class="inp-label">Storage</label>
+        <input class="inp" id="pti-storage" placeholder="64GB"></div>
+      <div class="field"><label class="inp-label">Color</label>
+        <input class="inp" id="pti-color" placeholder="Negro"></div>
+      <div class="field"><label class="inp-label">Batería %</label>
+        <input class="inp" type="number" id="pti-bat" placeholder="80"></div>
+      <div class="field"><label class="inp-label">Valor acordado (USD)</label>
+        <input class="inp" type="number" id="pti-valor" step="0.01" placeholder="0"></div>
+      <div class="field"><label class="inp-label">Fecha acordada</label>
+        <input class="inp" type="date" id="pti-fecha"></div>
+      <div class="field" style="grid-column:1/-1"><label class="inp-label">IMEI (si se conoce)</label>
+        <input class="inp" id="pti-imei" placeholder="Opcional"></div>
+      <div class="field" style="grid-column:1/-1"><label class="inp-label">Notas</label>
+        <textarea class="inp" id="pti-notas" rows="2" placeholder="Detalles del acuerdo..."></textarea></div>
+    </div>
+  </div>
+  <div class="drawer-footer">
+    <button class="btn btn-green" style="flex:1" onclick="savePendingTradein()">Guardar</button>
+    <button class="btn btn-ghost" onclick="closeDrawer('pending-tradein')">Cancelar</button>
   </div>
 </div>
 </div>
