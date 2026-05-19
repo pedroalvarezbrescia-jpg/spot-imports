@@ -272,6 +272,10 @@ input:checked+.toggle-slider:before{transform:translateX(16px)}
 /* Search input */
 .search-inp{background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:7px 11px;font-family:var(--fn);font-size:12px;color:var(--ink);outline:none;transition:border .1s}
 .search-inp:focus{border-color:var(--ink3)}
+/* datalist inputs look like selects with autocomplete */
+input[list].inp::-webkit-calendar-picker-indicator { opacity: 0.5; cursor: pointer; }
+/* cuotas preview */
+#deuda-cuotas-preview { white-space: pre; font-size: 10.5px; color: var(--ink3); font-family: var(--mono); }
 
 /* ── Delivery status pills ── */
 .del-pending{background:var(--a-bg);color:var(--a);border:1px solid var(--a-bd,#e8d890)}
@@ -597,6 +601,7 @@ input:checked+.toggle-slider:before{transform:translateX(16px)}
       <div class="sec">
         <h2>Stock <span style="font-size:12px;color:var(--ink3);font-weight:400" id="stock-count"></span></h2>
         <div class="sec-right">
+          <button class="btn btn-ghost btn-sm" onclick="go('walist',null);setTimeout(()=>{setWaMode('used');generateUsedList();},150)">📱 Lista usados</button>
           <button class="btn btn-ink btn-sm" onclick="openDrawer('stock')">+ Agregar</button>
         </div>
       </div>
@@ -921,6 +926,7 @@ input:checked+.toggle-slider:before{transform:translateX(16px)}
           <div style="background:var(--white);border:1px solid var(--line);border-radius:10px;overflow:hidden">
             <div id="wa-tab-cli" class="wa-tab active" onclick="setWaMode('cli')">📱 Cliente final</div>
             <div id="wa-tab-rev" class="wa-tab" onclick="setWaMode('rev')">📦 Revendedores</div>
+            <div id="wa-tab-used" class="wa-tab" onclick="setWaMode('used')">📱 Lista usados</div>
           </div>
 
           <!-- Filters -->
@@ -1273,10 +1279,24 @@ Configurá los filtros y hacé clic en "Generar lista"
         <div class="field"><label class="inp-label">Condición</label>
           <select class="inp" id="s-cond"><option>Nuevo</option><option>Usado</option><option>Detalle</option></select></div>
       </div>
-      <div class="field"><label class="inp-label">Modelo</label><input class="inp" type="text" id="s-modelo" placeholder="Ej: iPhone 15 Pro Max" autocomplete="off"></div>
+      <div class="field">
+        <label class="inp-label">Modelo</label>
+        <input class="inp" type="text" id="s-modelo" placeholder="Ej: iPhone 15 Pro Max" autocomplete="off"
+          list="dl-modelos" oninput="onStockModelChange()" onchange="onStockModelChange()">
+        <datalist id="dl-modelos"></datalist>
+      </div>
       <div class="fgrid fg3" style="gap:10px">
-        <div class="field"><label class="inp-label">Storage</label><input class="inp" id="s-storage" placeholder="256GB"></div>
-        <div class="field"><label class="inp-label">Color</label><input class="inp" id="s-color" placeholder="Negro"></div>
+        <div class="field">
+          <label class="inp-label">Storage</label>
+          <input class="inp" id="s-storage" placeholder="256GB" list="dl-storages"
+            oninput="onStockStorageChange()" onchange="onStockStorageChange()">
+          <datalist id="dl-storages"></datalist>
+        </div>
+        <div class="field">
+          <label class="inp-label">Color</label>
+          <input class="inp" id="s-color" placeholder="Negro" list="dl-colors">
+          <datalist id="dl-colors"></datalist>
+        </div>
         <div class="field"><label class="inp-label">Batería %</label><input class="inp" type="number" id="s-bat" placeholder="100"></div>
       </div>
       <div class="fgrid fg2" style="gap:10px">
@@ -3211,6 +3231,7 @@ function getWaItems() {
 }
 
 function generateWaList() {
+  if (waMode === 'used') { generateUsedList(); return; }
   const items = getWaItems();
   const header = document.getElementById('wa-header')?.value || '@spot_imports';
   const footer = document.getElementById('wa-footer')?.value || '';
@@ -4039,8 +4060,14 @@ function renderDeudas() {
   const ct = document.getElementById('cobros-tbody');
   if(ct) ct.innerHTML = cobros.map(x=>{
     const venc = x.vencimiento&&new Date()<new Date(x.vencimiento)?`<span style="font-size:10px;color:var(--a);font-family:var(--mo)">${x.vencimiento}</span>`:'';
+    const cuotaLines = x.notas&&x.notas.includes('CUOTAS:')
+      ? x.notas.split('\n').filter(l=>l.startsWith('Cuota')).slice(0,1)
+      : [];
+    const nextCuota = cuotaLines.length
+      ? `<span style="font-size:10px;font-family:var(--mono);color:var(--a);display:block">${cuotaLines[0]}</span>`
+      : '';
     return`<tr>
-      <td><div style="font-weight:500">${x.descripcion}</div>${x.notas?`<div style="font-size:10px;color:var(--ink3)">${x.notas}</div>`:''}</td>
+      <td><div style="font-weight:500">${x.descripcion}</div>${nextCuota}${x.notas&&!x.notas.startsWith('CUOTAS:')?`<div style="font-size:10px;color:var(--ink3)">${x.notas.split('\nCUOTAS:')[0]}</div>`:''}</td>
       <td style="font-family:var(--mo);font-weight:700;color:var(--g)">$${x.monto.toLocaleString()} <span style="font-size:10px;font-weight:400">${x.moneda}</span></td>
       <td style="font-size:11px;color:var(--ink3)">${x.fecha}${venc?'<br>vence '+x.vencimiento:''}</td>
       <td>${x.estado==='pendiente'?'<span class="pill pill-amber">Pendiente</span>':'<span class="pill pill-green">Cobrado</span>'}</td>
@@ -4232,6 +4259,261 @@ function updateDeudasBadge() {
   const b=document.getElementById('deudas-badge');
   if(b){b.style.display=n?'block':'none';b.textContent=n||'';}
 }
+
+
+// ════════════════════════════════════════
+// SMART DROPDOWNS — model/storage/color
+// from supplier products, stock, supplier listings
+// ════════════════════════════════════════
+
+function getKnownValues(field) {
+  // Gather from all sources
+  const allItems = [
+    ...supplierProds,
+    ...stock,
+  ];
+  const vals = new Set();
+  allItems.forEach(item => {
+    const cat = document.getElementById('s-cat')?.value || '';
+    // filter by category if selected
+    if (cat && item.cat && item.cat !== cat) return;
+    const v = item[field];
+    if (v && v !== '-' && v.trim()) vals.add(v.trim());
+  });
+  return [...vals].sort();
+}
+
+function getKnownStorages(modelo) {
+  const m = (modelo || '').toLowerCase();
+  const vals = new Set();
+  [...supplierProds, ...stock].forEach(item => {
+    const im = (item.modelo || '').toLowerCase();
+    if (!m || im.includes(m) || m.includes(im.split(' ').slice(0,3).join(' '))) {
+      if (item.storage && item.storage !== '-') vals.add(item.storage.trim());
+    }
+  });
+  // Always include common storages as fallback
+  ['64GB','128GB','256GB','512GB','1TB'].forEach(s => vals.add(s));
+  return [...vals].sort((a,b) => {
+    const na = parseInt(a), nb = parseInt(b);
+    return na - nb;
+  });
+}
+
+function getKnownColors(modelo, storage) {
+  const m = (modelo || '').toLowerCase();
+  const vals = new Set();
+  [...supplierProds, ...stock].forEach(item => {
+    const im = (item.modelo || '').toLowerCase();
+    if (!m || im.includes(m) || m.includes(im.split(' ').slice(0,3).join(' '))) {
+      if (!storage || item.storage === storage) {
+        if (item.color && item.color !== '-') vals.add(item.color.trim());
+      }
+    }
+  });
+  return [...vals].sort();
+}
+
+function getKnownModels(cat) {
+  const vals = new Set();
+  [...supplierProds, ...stock].forEach(item => {
+    if (!cat || item.cat === cat) {
+      if (item.modelo) vals.add(item.modelo.trim());
+    }
+  });
+  return [...vals].sort();
+}
+
+function fillDatalist(datalistId, values) {
+  const dl = document.getElementById(datalistId);
+  if (!dl) return;
+  dl.innerHTML = values.map(v => `<option value="${v}">`).join('');
+}
+
+function onStockCatChange() {
+  const cat = document.getElementById('s-cat')?.value || '';
+  // Refresh model datalist when category changes
+  fillDatalist('dl-modelos', getKnownModels(cat));
+  // Clear storage/color
+  fillDatalist('dl-storages', getKnownStorages(''));
+  fillDatalist('dl-colors', getKnownColors('', ''));
+}
+
+function onStockModelChange() {
+  const modelo = document.getElementById('s-modelo')?.value || '';
+  fillDatalist('dl-storages', getKnownStorages(modelo));
+  fillDatalist('dl-colors', getKnownColors(modelo, ''));
+}
+
+function onStockStorageChange() {
+  const modelo = document.getElementById('s-modelo')?.value || '';
+  const storage = document.getElementById('s-storage')?.value || '';
+  fillDatalist('dl-colors', getKnownColors(modelo, storage));
+}
+
+function initStockDropdowns() {
+  const cat = document.getElementById('s-cat')?.value || '';
+  fillDatalist('dl-modelos', getKnownModels(cat));
+  fillDatalist('dl-storages', getKnownStorages(''));
+  fillDatalist('dl-colors', getKnownColors('',''));
+}
+
+// ════════════════════════════════════════
+// LISTA DE USADOS — WhatsApp format
+// ════════════════════════════════════════
+function generateUsedList() {
+  const usados = stock.filter(s =>
+    s.estado === 'Disponible' &&
+    (s.cond === 'Usado' || s.cond === 'Detalle')
+  ).sort((a, b) => {
+    // Sort by category then model
+    const catOrd = ['iPhone','iPad','MacBook','AirPods','PS5','Otro'];
+    const ca = catOrd.indexOf(a.cat), cb = catOrd.indexOf(b.cat);
+    if (ca !== cb) return (ca<0?99:ca) - (cb<0?99:cb);
+    return (a.modelo||'').localeCompare(b.modelo||'');
+  });
+
+  if (!usados.length) {
+    const prev = document.getElementById('wa-preview');
+    if (prev) prev.textContent = 'No hay productos usados disponibles en stock.';
+    document.getElementById('wa-stats').textContent = '0 productos';
+    document.getElementById('wa-copy-btn').style.display = 'none';
+    document.getElementById('wa-wa-btn').style.display = 'none';
+    return;
+  }
+
+  const header = document.getElementById('wa-header')?.value || '@spot_imports';
+
+  let list = `📱 LISTADO IPHONES USADOS – ${header}\n`;
+  list += `🎁 Funda + vidrio templado + cable DE REGALO\n`;
+  list += `✅ Garantía SPOT IMPORTS por 30 días\n`;
+  list += `${'─'.repeat(32)}\n\n`;
+
+  let lastCat = '';
+  usados.forEach(s => {
+    if (s.cat !== lastCat) {
+      if (lastCat) list += '\n';
+      lastCat = s.cat;
+    }
+    const batStr = s.bat != null ? ` 🔋 ${s.bat}%` : '';
+    const colorStr = s.color && s.color !== '-' ? ` | ${s.color}` : '';
+    const storageStr = s.storage && s.storage !== '-' ? ` ${s.storage}` : '';
+    const price = s.precio ? ` 💵 U$D ${s.precio.toLocaleString()}` : '';
+    const cond = s.cond === 'Detalle' ? ' ⚠️ Detalle' : '';
+    list += `📱 ${s.modelo}${storageStr}${batStr}${colorStr}${price}${cond}\n`;
+  });
+
+  list += `\n${'─'.repeat(32)}\n`;
+  list += `📲 Consultá por WhatsApp | Envíos GBA y CABA`;
+
+  const prev = document.getElementById('wa-preview');
+  if (prev) prev.textContent = list;
+  document.getElementById('wa-preview-label').textContent = 'Lista de usados';
+  document.getElementById('wa-stats').textContent = `${usados.length} productos usados`;
+  document.getElementById('wa-copy-btn').style.display = '';
+  document.getElementById('wa-wa-btn').style.display = '';
+  window._waListText = list;
+  toast(`📱 Lista generada: ${usados.length} usados`);
+}
+
+// ════════════════════════════════════════
+// CUOTAS — deuda drawer
+// ════════════════════════════════════════
+function toggleCuotas() {
+  const on = document.getElementById('deuda-es-cuotas')?.checked;
+  const fields = document.getElementById('deuda-cuotas-fields');
+  if (fields) fields.style.display = on ? 'block' : 'none';
+  if (on) calcCuotas();
+}
+
+function calcCuotas() {
+  const montoTotal = parseFloat(document.getElementById('deuda-monto')?.value) || 0;
+  const nCuotas = parseInt(document.getElementById('deuda-ncuotas')?.value) || 0;
+  const montoCuota = parseFloat(document.getElementById('deuda-monto-cuota')?.value) || (nCuotas > 0 ? montoTotal / nCuotas : 0);
+  const diaPago = parseInt(document.getElementById('deuda-dia-pago')?.value) || null;
+  const fechaInicio = document.getElementById('deuda-fecha')?.value;
+  const prev = document.getElementById('deuda-cuotas-preview');
+  if (!prev || !nCuotas) return;
+
+  if (!montoCuota || !nCuotas) { prev.textContent = ''; return; }
+
+  // Auto-fill monto-cuota
+  if (!document.getElementById('deuda-monto-cuota').value && montoTotal && nCuotas) {
+    document.getElementById('deuda-monto-cuota').value = (montoTotal / nCuotas).toFixed(2);
+  }
+
+  let lines = [];
+  let baseDate = fechaInicio ? new Date(fechaInicio + 'T12:00:00') : new Date();
+  for (let i = 0; i < Math.min(nCuotas, 12); i++) {
+    const d = new Date(baseDate);
+    d.setMonth(d.getMonth() + i);
+    if (diaPago) d.setDate(diaPago);
+    const dateStr = d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    lines.push(`Cuota ${i+1}/${nCuotas}: $${montoCuota.toFixed(2)} — ${dateStr}`);
+  }
+  if (nCuotas > 12) lines.push(`... y ${nCuotas - 12} cuotas más`);
+  prev.textContent = lines.join('\n');
+
+  // Auto-set vencimiento to first cuota date
+  const firstDate = new Date(baseDate);
+  if (diaPago) firstDate.setDate(diaPago);
+  const vEl = document.getElementById('deuda-vence');
+  if (vEl && !vEl.value) vEl.value = firstDate.toISOString().slice(0, 10);
+}
+
+// Extend openDeudaDrawer reset to clear cuotas
+const _origOpenDeudaDrawer = openDeudaDrawer;
+openDeudaDrawer = function(tipo) {
+  _origOpenDeudaDrawer(tipo);
+  const cb = document.getElementById('deuda-es-cuotas');
+  if (cb) cb.checked = false;
+  const cf = document.getElementById('deuda-cuotas-fields');
+  if (cf) cf.style.display = 'none';
+  const prev = document.getElementById('deuda-cuotas-preview');
+  if (prev) prev.textContent = '';
+  ['deuda-ncuotas','deuda-monto-cuota','deuda-dia-pago'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+};
+
+// Extend saveDeuda to include cuotas info
+const _origSaveDeuda = saveDeuda;
+saveDeuda = function() {
+  // Append cuota schedule to notas if applicable
+  const esCuotas = document.getElementById('deuda-es-cuotas')?.checked;
+  if (esCuotas) {
+    const preview = document.getElementById('deuda-cuotas-preview')?.textContent || '';
+    const notasEl = document.getElementById('deuda-notas');
+    if (notasEl && preview) {
+      notasEl.value = (notasEl.value ? notasEl.value + '\n' : '') + 'CUOTAS:\n' + preview;
+    }
+  }
+  _origSaveDeuda();
+};
+
+// Extend openDrawer('stock') to init dropdowns
+const _origOpenDrawer = openDrawer;
+openDrawer = function(type) {
+  _origOpenDrawer(type);
+  if (type === 'stock') {
+    setTimeout(initStockDropdowns, 60);
+    // Wire cat change
+    const catEl = document.getElementById('s-cat');
+    if (catEl && !catEl._ddWired) {
+      catEl._ddWired = true;
+      catEl.addEventListener('change', onStockCatChange);
+    }
+  }
+};
+
+// Extend setWaMode to handle 'used'
+const _origSetWaMode = setWaMode;
+setWaMode = function(mode) {
+  _origSetWaMode(mode);
+  document.querySelectorAll('.wa-tab').forEach(t => t.classList.remove('active'));
+  const tabEl = document.getElementById('wa-tab-'+mode);
+  if (tabEl) tabEl.classList.add('active');
+};
 
 // ════════════════════════════════════════════════════════════════
 // SUPABASE ENGINE v4.1 — fetch-native, no external library
@@ -4799,10 +5081,27 @@ setEntEstado = async function(id, estado) {
           <select class="inp" id="deuda-moneda"><option>USD</option><option>ARS</option></select></div>
       </div>
       <div class="fgrid fg2" style="gap:10px">
-        <div class="field"><label class="inp-label">Fecha</label>
+        <div class="field"><label class="inp-label">Fecha inicio</label>
           <input class="inp" type="date" id="deuda-fecha"></div>
-        <div class="field"><label class="inp-label">Vencimiento (opcional)</label>
+        <div class="field"><label class="inp-label">Primer vencimiento</label>
           <input class="inp" type="date" id="deuda-vence"></div>
+      </div>
+      <!-- Cuotas -->
+      <div style="background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:12px">
+        <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer;margin-bottom:10px">
+          <input type="checkbox" id="deuda-es-cuotas" style="accent-color:var(--g)" onchange="toggleCuotas()"> Es en cuotas
+        </label>
+        <div id="deuda-cuotas-fields" style="display:none">
+          <div class="fgrid fg3" style="gap:8px">
+            <div class="field"><label class="inp-label">Cuotas totales</label>
+              <input class="inp" type="number" id="deuda-ncuotas" min="2" max="60" placeholder="12" oninput="calcCuotas()"></div>
+            <div class="field"><label class="inp-label">Monto por cuota (USD)</label>
+              <input class="inp" type="number" id="deuda-monto-cuota" step="0.01" placeholder="auto" oninput="calcCuotas()"></div>
+            <div class="field"><label class="inp-label">Día de pago</label>
+              <input class="inp" type="number" id="deuda-dia-pago" min="1" max="31" placeholder="Ej: 10" oninput="calcCuotas()"></div>
+          </div>
+          <div id="deuda-cuotas-preview" style="margin-top:8px;font-size:11px;color:var(--ink3);font-family:var(--mono);line-height:1.7"></div>
+        </div>
       </div>
       <div class="field"><label class="inp-label">Notas</label>
         <textarea class="inp" id="deuda-notas" rows="2" placeholder="Opcional..."></textarea></div>
