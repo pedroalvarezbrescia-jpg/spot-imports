@@ -472,6 +472,9 @@ input[list].inp::-webkit-calendar-picker-indicator { opacity: 0.5; cursor: point
     <div class="auth-err" id="auth-err"></div>
     <button class="btn btn-ink" style="width:100%;justify-content:center;margin-top:4px" onclick="doAuth()" id="auth-btn">Entrar</button>
 
+    <div id="auth-email-tip" style="display:none;margin-top:10px;padding:9px 12px;background:var(--a-bg);border:1px solid #e8d890;border-radius:7px;font-size:11px;color:var(--a);line-height:1.6">
+      📧 Para crear cuenta: revisá tu email y confirmá el enlace que te envió Supabase. Después volvé acá e iniciá sesión.
+    </div>
     <div style="margin-top:16px;text-align:center">
       <button class="btn btn-ghost btn-sm" style="font-size:11px" onclick="skipAuth()">
         Usar sin cuenta (solo local)
@@ -1162,7 +1165,11 @@ Configurá los filtros y hacé clic en "Generar lista"
         <div class="field">
           <label class="inp-label">Método de pago</label>
           <select class="inp" id="v-metodo" onchange="onMetodoChange()">
-            <option>USD</option><option>ARS</option><option>Mixto</option>
+            <option>USD efectivo</option>
+            <option>ARS efectivo</option>
+            <option>Transferencia USD</option>
+            <option>Transferencia ARS</option>
+            <option>Mixto</option>
           </select>
         </div>
       </div>
@@ -1236,7 +1243,7 @@ Configurá los filtros y hacé clic en "Generar lista"
             <option value="">— Opcional —</option>
             <option>Lucas Pérez</option><option>Sofía Gómez</option><option>Carlos Ríos</option><option>Diego Torres</option>
           </select></div>
-        <div class="field"><label class="inp-label">Fecha</label><input class="inp" type="date" id="v-fecha"></div>
+        <div class="field"><label class="inp-label">Fecha <span style="color:var(--ink3);font-weight:400;font-size:9px">opcional</span></label><input class="inp" type="date" id="v-fecha" placeholder="Hoy"></div>
         <div class="field"><label class="inp-label">Garantía inicio</label><input class="inp" type="date" id="v-gar-ini" oninput="calcGarantia()"></div>
         <div class="field"><label class="inp-label">Días garantía</label><input class="inp" type="number" id="v-gar-dias" value="30" oninput="calcGarantia()"></div>
         <div class="field" style="grid-column:1/-1"><label class="inp-label">Fin de garantía (auto)</label><input class="inp" type="date" id="v-gar-fin" readonly style="color:var(--ink3)"></div>
@@ -1523,13 +1530,16 @@ let iPhoneAccByModel = [
   {id:uid(),modelBase:'iPhone 11',casesQty:0,casesMin:2,glassQty:0,glassMin:2,updatedAt:today()},
   {id:uid(),modelBase:'iPhone 11 Pro',casesQty:0,casesMin:2,glassQty:0,glassMin:2,updatedAt:today()},
   {id:uid(),modelBase:'iPhone 11 Pro Max',casesQty:0,casesMin:2,glassQty:0,glassMin:2,updatedAt:today()},
+  // iPhone SE
+  {id:uid(),modelBase:'iPhone SE (2da gen)',casesQty:0,casesMin:2,glassQty:0,glassMin:2,updatedAt:today()},
+  {id:uid(),modelBase:'iPhone SE (3ra gen)',casesQty:0,casesMin:2,glassQty:0,glassMin:2,updatedAt:today()},
   // iPhone 12
-  {id:uid(),modelBase:'iPhone 12 mini',casesQty:0,casesMin:2,glassQty:0,glassMin:2,updatedAt:today()},
+  {id:uid(),modelBase:'iPhone 12 Mini',casesQty:0,casesMin:2,glassQty:0,glassMin:2,updatedAt:today()},
   {id:uid(),modelBase:'iPhone 12',casesQty:0,casesMin:2,glassQty:0,glassMin:2,updatedAt:today()},
   {id:uid(),modelBase:'iPhone 12 Pro',casesQty:0,casesMin:2,glassQty:0,glassMin:2,updatedAt:today()},
   {id:uid(),modelBase:'iPhone 12 Pro Max',casesQty:0,casesMin:2,glassQty:0,glassMin:2,updatedAt:today()},
   // iPhone 13
-  {id:uid(),modelBase:'iPhone 13 mini',casesQty:0,casesMin:2,glassQty:0,glassMin:2,updatedAt:today()},
+  {id:uid(),modelBase:'iPhone 13 Mini',casesQty:0,casesMin:2,glassQty:0,glassMin:2,updatedAt:today()},
   {id:uid(),modelBase:'iPhone 13',casesQty:3,casesMin:2,glassQty:4,glassMin:2,updatedAt:today()},
   {id:uid(),modelBase:'iPhone 13 Pro',casesQty:0,casesMin:2,glassQty:0,glassMin:2,updatedAt:today()},
   {id:uid(),modelBase:'iPhone 13 Pro Max',casesQty:0,casesMin:2,glassQty:0,glassMin:2,updatedAt:today()},
@@ -1548,6 +1558,7 @@ let iPhoneAccByModel = [
   {id:uid(),modelBase:'iPhone 16 Plus',casesQty:0,casesMin:2,glassQty:0,glassMin:2,updatedAt:today()},
   {id:uid(),modelBase:'iPhone 16 Pro',casesQty:0,casesMin:2,glassQty:0,glassMin:2,updatedAt:today()},
   {id:uid(),modelBase:'iPhone 16 Pro Max',casesQty:0,casesMin:2,glassQty:0,glassMin:2,updatedAt:today()},
+  {id:uid(),modelBase:'iPhone 16e',casesQty:0,casesMin:2,glassQty:0,glassMin:2,updatedAt:today()},
   // iPhone 17
   {id:uid(),modelBase:'iPhone 17',casesQty:0,casesMin:2,glassQty:0,glassMin:2,updatedAt:today()},
   {id:uid(),modelBase:'iPhone 17 Air',casesQty:0,casesMin:2,glassQty:0,glassMin:2,updatedAt:today()},
@@ -2182,14 +2193,27 @@ function saveVenta(){
   updateEntBadge();
 
   toast(editId?'✓ Venta actualizada':'✓ Venta registrada');
-  // Offer to create delivery if not edit
+
+  // ── DB sync (non-blocking, background) ──
+  Promise.resolve().then(async()=>{
+    await dbUpsert('ventas', obj);
+    if(st&&st.id) await dbUpsert('stock', st);
+    if(hasTI&&tradeins[0]) await dbUpsert('tradeins', tradeins[0]);
+    if(hasTI&&stock[0]?.origin==='tradein') await dbUpsert('stock', stock[0]);
+    if(purchaseNeeds[0]?.saleId===obj.id) await dbUpsert('purchase_needs', purchaseNeeds[0]);
+    const newAccs=saleAccesorios.filter(a=>a.saleId===obj.id);
+    for(const a of newAccs) await dbUpsert('sale_accessories',a);
+  });
+
+  // ── Offer delivery (non-blocking) ──
   if(!editId&&obj.estado!=='Entregado'){
-    const createDel=confirm('¿Crear entrega pendiente para esta venta?');
-    if(createDel){
-      const modelBase=normalizeIPhoneModel(obj.producto)||obj.producto;
-      const isPhone=isIPhoneProduct({modelo:obj.producto});
-      openDeliveryDrawer({client:obj.cliente,productLabel:obj.producto,includesCase:isPhone,includesGlass:isPhone,zone:obj.zona||''});
-    }
+    setTimeout(()=>{
+      const createDel=confirm('¿Crear entrega pendiente para esta venta?');
+      if(createDel){
+        const isPhone=isIPhoneProduct({modelo:obj.producto});
+        openDeliveryDrawer({client:obj.cliente,productLabel:obj.producto,includesCase:isPhone,includesGlass:isPhone,zone:obj.zona||''});
+      }
+    },150);
   }
 }
 
@@ -2323,7 +2347,17 @@ function toggleExpand(id){const el=document.getElementById(id);if(el)el.classLis
 function estadoText(e){return{Reservado:'Reservado',Vendido:'Vendido',Entregado:'Entregado',Disponible:'Disponible'}[e]||e;}
 function estadoPill(e){const m={Disponible:'pill-green',Reservado:'pill-amber',Vendido:'pill-gray',Entregado:'pill-gray'};return`<span class="pill ${m[e]||'pill-gray'}">${e}</span>`;}
 function condPill(c){const m={Nuevo:'pill-green',Usado:'pill-amber',Detalle:'pill-red'};return`<span class="pill ${m[c]||'pill-gray'}">${c}</span>`;}
-function metodoPill(m){const mp={USD:'pill-green',ARS:'pill-gray',Mixto:'pill-amber'};return`<span class="pill ${mp[m]||'pill-gray'}">${m}</span>`;}
+function metodoPill(m){
+  const mp={
+    'USD efectivo':'pill-green','USD':'pill-green',
+    'ARS efectivo':'pill-gray','ARS':'pill-gray',
+    'Transferencia USD':'pill-green',
+    'Transferencia ARS':'pill-amber',
+    'Mixto':'pill-amber'
+  };
+  const label={'USD efectivo':'USD ef.','ARS efectivo':'ARS ef.','Transferencia USD':'Transf. USD','Transferencia ARS':'Transf. ARS','Mixto':'Mixto','USD':'USD','ARS':'ARS'}[m]||m;
+  return`<span class="pill ${mp[m]||'pill-gray'}">${label}</span>`;
+}
 let _toast;function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(_toast);_toast=setTimeout(()=>t.classList.remove('show'),2200);}
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){document.querySelectorAll('.drawer-overlay.open').forEach(d=>d.classList.remove('open'));closeConfirm();}});
 
@@ -2345,11 +2379,12 @@ function normalizeIPhoneModel(name) {
     [/iphone\s*17\s*pro\s*max/i,'iPhone 17 Pro Max'],
     [/iphone\s*17\s*pro(?!\s*max)/i,'iPhone 17 Pro'],
     [/iphone\s*17\s*air/i,'iPhone 17 Air'],
-    [/iphone\s*17(?!\s*pro|\s*air|\s*plus)/i,'iPhone 17'],
+    [/iphone\s*17(?!\s*pro|\s*air)/i,'iPhone 17'],
     [/iphone\s*16\s*pro\s*max/i,'iPhone 16 Pro Max'],
     [/iphone\s*16\s*pro(?!\s*max)/i,'iPhone 16 Pro'],
     [/iphone\s*16\s*plus/i,'iPhone 16 Plus'],
-    [/iphone\s*16(?!\s*pro|\s*plus)/i,'iPhone 16'],
+    [/iphone\s*16e/i,'iPhone 16e'],
+    [/iphone\s*16(?!\s*pro|\s*plus|\s*e)/i,'iPhone 16'],
     [/iphone\s*15\s*pro\s*max/i,'iPhone 15 Pro Max'],
     [/iphone\s*15\s*pro(?!\s*max)/i,'iPhone 15 Pro'],
     [/iphone\s*15\s*plus/i,'iPhone 15 Plus'],
@@ -2360,16 +2395,18 @@ function normalizeIPhoneModel(name) {
     [/iphone\s*14(?!\s*pro|\s*plus)/i,'iPhone 14'],
     [/iphone\s*13\s*pro\s*max/i,'iPhone 13 Pro Max'],
     [/iphone\s*13\s*pro(?!\s*max)/i,'iPhone 13 Pro'],
-    [/iphone\s*13\s*mini/i,'iPhone 13 mini'],
+    [/iphone\s*13\s*mini/i,'iPhone 13 Mini'],
     [/iphone\s*13(?!\s*pro|\s*mini)/i,'iPhone 13'],
     [/iphone\s*12\s*pro\s*max/i,'iPhone 12 Pro Max'],
     [/iphone\s*12\s*pro(?!\s*max)/i,'iPhone 12 Pro'],
-    [/iphone\s*12\s*mini/i,'iPhone 12 mini'],
+    [/iphone\s*12\s*mini/i,'iPhone 12 Mini'],
     [/iphone\s*12(?!\s*pro|\s*mini)/i,'iPhone 12'],
     [/iphone\s*11\s*pro\s*max/i,'iPhone 11 Pro Max'],
     [/iphone\s*11\s*pro(?!\s*max)/i,'iPhone 11 Pro'],
     [/iphone\s*11(?!\s*pro)/i,'iPhone 11'],
-    [/iphone\s*se/i,'iPhone SE'],
+    [/iphone\s*se.*3/i,'iPhone SE (3ra gen)'],
+    [/iphone\s*se.*2/i,'iPhone SE (2da gen)'],
+    [/iphone\s*se/i,'iPhone SE (2da gen)'],
   ];
   for (const [re,canonical] of maps) {
     if (re.test(name)) return canonical;
@@ -4262,50 +4299,114 @@ function updateDeudasBadge() {
 
 
 // ════════════════════════════════════════
+// IPHONE DATABASE — models, storages, colors
+// ════════════════════════════════════════
+const IPHONE_DB = {
+  // ── iPhone 11 ──────────────────────────
+  'iPhone 11':            { storages:['64GB','128GB','256GB'],        colors:['Black','White','Green','Yellow','Purple','(PRODUCT)RED'] },
+  'iPhone 11 Pro':        { storages:['64GB','256GB','512GB'],        colors:['Silver','Space Gray','Gold','Midnight Green'] },
+  'iPhone 11 Pro Max':    { storages:['64GB','256GB','512GB'],        colors:['Silver','Space Gray','Gold','Midnight Green'] },
+  // ── iPhone SE ──────────────────────────
+  'iPhone SE (2da gen)':  { storages:['64GB','128GB','256GB'],        colors:['Black','White','(PRODUCT)RED'] },
+  'iPhone SE (3ra gen)':  { storages:['64GB','128GB','256GB'],        colors:['Midnight','Starlight','(PRODUCT)RED'] },
+  // ── iPhone 12 ──────────────────────────
+  'iPhone 12 Mini':       { storages:['64GB','128GB','256GB'],        colors:['Black','White','Blue','Green','Purple','(PRODUCT)RED'] },
+  'iPhone 12':            { storages:['64GB','128GB','256GB'],        colors:['Black','White','Blue','Green','Purple','(PRODUCT)RED'] },
+  'iPhone 12 Pro':        { storages:['128GB','256GB','512GB'],       colors:['Silver','Graphite','Gold','Pacific Blue'] },
+  'iPhone 12 Pro Max':    { storages:['128GB','256GB','512GB'],       colors:['Silver','Graphite','Gold','Pacific Blue'] },
+  // ── iPhone 13 ──────────────────────────
+  'iPhone 13 Mini':       { storages:['128GB','256GB','512GB'],       colors:['Starlight','Midnight','Blue','Pink','Green','(PRODUCT)RED'] },
+  'iPhone 13':            { storages:['128GB','256GB','512GB'],       colors:['Starlight','Midnight','Blue','Pink','Green','(PRODUCT)RED'] },
+  'iPhone 13 Pro':        { storages:['128GB','256GB','512GB','1TB'], colors:['Graphite','Gold','Silver','Sierra Blue','Alpine Green'] },
+  'iPhone 13 Pro Max':    { storages:['128GB','256GB','512GB','1TB'], colors:['Graphite','Gold','Silver','Sierra Blue','Alpine Green'] },
+  // ── iPhone 14 ──────────────────────────
+  'iPhone 14':            { storages:['128GB','256GB','512GB'],       colors:['Midnight','Starlight','Blue','Purple','Yellow','(PRODUCT)RED'] },
+  'iPhone 14 Plus':       { storages:['128GB','256GB','512GB'],       colors:['Midnight','Starlight','Blue','Purple','Yellow','(PRODUCT)RED'] },
+  'iPhone 14 Pro':        { storages:['128GB','256GB','512GB','1TB'], colors:['Space Black','Silver','Gold','Deep Purple'] },
+  'iPhone 14 Pro Max':    { storages:['128GB','256GB','512GB','1TB'], colors:['Space Black','Silver','Gold','Deep Purple'] },
+  // ── iPhone 15 ──────────────────────────
+  'iPhone 15':            { storages:['128GB','256GB','512GB'],       colors:['Black','Blue','Green','Yellow','Pink'] },
+  'iPhone 15 Plus':       { storages:['128GB','256GB','512GB'],       colors:['Black','Blue','Green','Yellow','Pink'] },
+  'iPhone 15 Pro':        { storages:['128GB','256GB','512GB','1TB'], colors:['Natural Titanium','Blue Titanium','White Titanium','Black Titanium'] },
+  'iPhone 15 Pro Max':    { storages:['256GB','512GB','1TB'],         colors:['Natural Titanium','Blue Titanium','White Titanium','Black Titanium'] },
+  // ── iPhone 16 ──────────────────────────
+  'iPhone 16':            { storages:['128GB','256GB','512GB'],       colors:['Black','White','Pink','Teal','Ultramarine'] },
+  'iPhone 16 Plus':       { storages:['128GB','256GB','512GB'],       colors:['Black','White','Pink','Teal','Ultramarine'] },
+  'iPhone 16 Pro':        { storages:['128GB','256GB','512GB','1TB'], colors:['Black Titanium','White Titanium','Natural Titanium','Desert Titanium'] },
+  'iPhone 16 Pro Max':    { storages:['256GB','512GB','1TB'],         colors:['Black Titanium','White Titanium','Natural Titanium','Desert Titanium'] },
+  'iPhone 16e':           { storages:['128GB','256GB','512GB'],       colors:['Black','White'] },
+  // ── iPhone 17 ──────────────────────────
+  'iPhone 17':            { storages:['128GB','256GB','512GB'],       colors:['Black','White','Blue','Green','Purple'] },
+  'iPhone 17 Air':        { storages:['256GB','512GB','1TB'],         colors:['Black','Silver','Blue Gray','Gold'] },
+  'iPhone 17 Pro':        { storages:['256GB','512GB','1TB'],         colors:['Black Titanium','White Titanium','Natural Titanium','Dark Blue Titanium'] },
+  'iPhone 17 Pro Max':    { storages:['256GB','512GB','1TB'],         colors:['Black Titanium','White Titanium','Natural Titanium','Dark Blue Titanium'] },
+};
+
+// Order of iPhone models for sorting
+const IPHONE_ORDER = Object.keys(IPHONE_DB);
+
+// ════════════════════════════════════════
 // SMART DROPDOWNS — model/storage/color
-// from supplier products, stock, supplier listings
+// merges static DB with live supplier data
 // ════════════════════════════════════════
 
-function getKnownValues(field) {
-  // Gather from all sources
-  const allItems = [
-    ...supplierProds,
-    ...stock,
-  ];
+function getKnownModels(cat) {
   const vals = new Set();
-  allItems.forEach(item => {
-    const cat = document.getElementById('s-cat')?.value || '';
-    // filter by category if selected
-    if (cat && item.cat && item.cat !== cat) return;
-    const v = item[field];
-    if (v && v !== '-' && v.trim()) vals.add(v.trim());
+  // First: static DB for iPhone
+  if (!cat || cat === 'iPhone') {
+    IPHONE_ORDER.forEach(m => vals.add(m));
+  }
+  // Then: live supplier + stock data
+  [...supplierProds, ...stock].forEach(item => {
+    if (!cat || item.cat === cat) {
+      if (item.modelo && item.modelo.trim()) vals.add(item.modelo.trim());
+    }
   });
-  return [...vals].sort();
+  // Sort iPhones by DB order, rest alphabetically
+  return [...vals].sort((a,b) => {
+    const ia = IPHONE_ORDER.indexOf(a), ib = IPHONE_ORDER.indexOf(b);
+    if (ia>=0 && ib>=0) return ia - ib;
+    if (ia>=0) return -1;
+    if (ib>=0) return 1;
+    return a.localeCompare(b);
+  });
 }
 
 function getKnownStorages(modelo) {
-  const m = (modelo || '').toLowerCase();
+  const m = (modelo || '').trim();
   const vals = new Set();
+  // Static DB first
+  const dbEntry = IPHONE_DB[m];
+  if (dbEntry) dbEntry.storages.forEach(s => vals.add(s));
+  // Live data
   [...supplierProds, ...stock].forEach(item => {
     const im = (item.modelo || '').toLowerCase();
-    if (!m || im.includes(m) || m.includes(im.split(' ').slice(0,3).join(' '))) {
+    const ml = m.toLowerCase();
+    if (!m || im.includes(ml.split(' ').slice(0,3).join(' ')) || ml.includes(im.split(' ').slice(0,3).join(' '))) {
       if (item.storage && item.storage !== '-') vals.add(item.storage.trim());
     }
   });
-  // Always include common storages as fallback
-  ['64GB','128GB','256GB','512GB','1TB'].forEach(s => vals.add(s));
+  // Fallback if nothing found
+  if (!vals.size) ['64GB','128GB','256GB','512GB'].forEach(s => vals.add(s));
   return [...vals].sort((a,b) => {
     const na = parseInt(a), nb = parseInt(b);
+    if (a.includes('TB') && !b.includes('TB')) return 1;
+    if (!a.includes('TB') && b.includes('TB')) return -1;
     return na - nb;
   });
 }
 
 function getKnownColors(modelo, storage) {
-  const m = (modelo || '').toLowerCase();
+  const m = (modelo || '').trim();
   const vals = new Set();
+  // Static DB first
+  const dbEntry = IPHONE_DB[m];
+  if (dbEntry) dbEntry.colors.forEach(col => vals.add(col));
+  // Live data
   [...supplierProds, ...stock].forEach(item => {
     const im = (item.modelo || '').toLowerCase();
-    if (!m || im.includes(m) || m.includes(im.split(' ').slice(0,3).join(' '))) {
+    const ml = m.toLowerCase();
+    if (!m || im.includes(ml.split(' ').slice(0,3).join(' ')) || ml.includes(im.split(' ').slice(0,3).join(' '))) {
       if (!storage || item.storage === storage) {
         if (item.color && item.color !== '-') vals.add(item.color.trim());
       }
@@ -4314,12 +4415,13 @@ function getKnownColors(modelo, storage) {
   return [...vals].sort();
 }
 
-function getKnownModels(cat) {
+function getKnownValues(field) {
   const vals = new Set();
+  const cat = document.getElementById('s-cat')?.value || '';
   [...supplierProds, ...stock].forEach(item => {
-    if (!cat || item.cat === cat) {
-      if (item.modelo) vals.add(item.modelo.trim());
-    }
+    if (cat && item.cat && item.cat !== cat) return;
+    const v = item[field];
+    if (v && v !== '-' && String(v).trim()) vals.add(String(v).trim());
   });
   return [...vals].sort();
 }
@@ -4625,7 +4727,7 @@ async function dbUpsert(table, row) {
       headers: { 'Prefer': 'resolution=merge-duplicates,return=minimal', 'on-conflict': pk },
       body: Array.isArray(row) ? row : [row],
     });
-    setSyncStatus('live');
+    setSyncStatus('live'); markSaved();
   } catch(e) {
     console.warn(`dbUpsert ${table}:`, e.message);
     setSyncStatus('error', 'Error al guardar');
@@ -4687,13 +4789,18 @@ async function loadAllFromDB() {
 
 // ── Real-time via polling (works everywhere, no WS restrictions) ──
 let pollInterval = null;
+let _lastSaveTs = 0;
+function markSaved() { _lastSaveTs = Date.now(); }
+
 function startPolling() {
   if (pollInterval) clearInterval(pollInterval);
   pollInterval = setInterval(async () => {
     if (!sbSession || !isOnline) return;
+    // Skip poll if a save happened in the last 30s (avoid clobbering new data)
+    if (Date.now() - _lastSaveTs < 30000) return;
     await loadAllFromDB();
     refreshActiveView();
-  }, 15000); // every 15 seconds
+  }, 30000); // every 30 seconds (was 15s)
 }
 
 // ── Re-render active view ──
@@ -4809,7 +4916,15 @@ async function doAuth() {
     }
     await bootApp();
   } catch(e) {
-    if (errEl) errEl.textContent = e.message || 'Error de autenticación';
+    let errMsg = e.message || 'Error de autenticación';
+    if(errMsg.includes('Email not confirmed') || errMsg.includes('email_not_confirmed')) {
+      errMsg = '⚠ Confirmá tu email: revisá tu casilla de correo y hacé clic en el enlace de confirmación de Supabase.';
+    } else if(errMsg.includes('Invalid login credentials')) {
+      errMsg = 'Email o contraseña incorrectos.';
+    } else if(errMsg.includes('User already registered')) {
+      errMsg = 'Ese email ya tiene cuenta. Usá "Iniciar sesión".';
+    }
+    if (errEl) errEl.textContent = errMsg;
     if (btn) { btn.textContent = authMode === 'login' ? 'Entrar' : 'Crear cuenta'; btn.disabled = false; }
   }
 }
@@ -4836,23 +4951,7 @@ function saveSBConfig() { /* credentials are hardcoded for production */ }
 const _origSaveStock = saveStock;
 saveStock = async function() { _origSaveStock(); if(stock[0]) await dbUpsert('stock', stock[0]); };
 
-const _origSaveVenta = saveVenta;
-saveVenta = async function() {
-  _origSaveVenta();
-  const v = ventas[0];
-  if(v) await dbUpsert('ventas', v);
-  // Sync trade-in and stock if applicable
-  if(tradeins[0]?.saleId===undefined||tradeins[0]) {
-    const recentTI = tradeins.find(t=>t.ventaRef===v?.producto);
-    if(recentTI) await dbUpsert('tradeins', recentTI);
-  }
-  if(stock[0]?.origin==='tradein') await dbUpsert('stock', stock[0]);
-  // Sync purchase needs if created
-  if(purchaseNeeds[0]?.saleId===v?.id) await dbUpsert('purchase_needs', purchaseNeeds[0]);
-  // Sync sale accessories
-  const newAccs = saleAccesorios.filter(a=>a.saleId===v?.id);
-  for(const a of newAccs) await dbUpsert('sale_accessories', a);
-};
+// saveVenta DB sync is now inline inside saveVenta() directly — wrapper removed to prevent recursion
 
 const _origSaveTradein = saveTradein;
 saveTradein = async function() {
