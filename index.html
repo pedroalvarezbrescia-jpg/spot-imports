@@ -1150,6 +1150,37 @@ Configurá los filtros y hacé clic en "Generar lista"
         <label class="inp-label">Producto</label>
         <select class="inp" id="v-prod" onchange="onVProdChange()" style="font-size:13px"></select>
       </div>
+      <!-- Smart cascading selector -->
+      <div style="background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px 12px">
+        <div style="font-size:10px;font-weight:700;color:var(--ink3);letter-spacing:.4px;text-transform:uppercase;margin-bottom:8px">O seleccioná por modelo ↓</div>
+        <div class="fgrid fg2" style="gap:8px">
+          <div class="field">
+            <label class="inp-label">Modelo</label>
+            <input class="inp" type="text" id="v-modelo-libre" placeholder="iPhone 15 Pro..." list="v-dl-modelos"
+              oninput="onVModelChange()" onchange="onVModelChange()" autocomplete="off">
+            <datalist id="v-dl-modelos"></datalist>
+          </div>
+          <div class="field">
+            <label class="inp-label">Storage</label>
+            <input class="inp" id="v-storage-libre" placeholder="256GB" list="v-dl-storages"
+              oninput="onVStorageChange()" onchange="onVStorageChange()">
+            <datalist id="v-dl-storages"></datalist>
+          </div>
+          <div class="field">
+            <label class="inp-label">Color</label>
+            <input class="inp" id="v-color-libre" placeholder="Black" list="v-dl-colors">
+            <datalist id="v-dl-colors"></datalist>
+          </div>
+          <div class="field">
+            <label class="inp-label">Condición</label>
+            <select class="inp" id="v-cond-libre">
+              <option value="">Cualquiera</option>
+              <option>Nuevo</option><option>Usado</option><option>Detalle</option>
+            </select>
+          </div>
+        </div>
+        <div id="v-stock-match" style="display:none;margin-top:8px;font-size:11px;color:var(--g);font-family:var(--mono)"></div>
+      </div>
       <div class="fgrid fg2" style="gap:12px">
         <div class="field">
           <label class="inp-label">Precio venta (USD)</label>
@@ -1354,7 +1385,12 @@ Configurá los filtros y hacé clic en "Generar lista"
         <div class="field"><label class="inp-label">Fecha</label><input class="inp" type="date" id="ti-fecha"></div>
       </div>
       <div class="fgrid fg2" style="gap:10px">
-        <div class="field"><label class="inp-label">Modelo recibido</label><input class="inp" id="ti-modelo" placeholder="iPhone 12"></div>
+        <div class="field">
+          <label class="inp-label">Modelo recibido</label>
+          <input class="inp" id="ti-modelo" placeholder="iPhone 12" list="ti-dl-modelos"
+            oninput="onTiModelChange()" onchange="onTiModelChange()" autocomplete="off">
+          <datalist id="ti-dl-modelos"></datalist>
+        </div>
         <div class="field"><label class="inp-label">Valor asignado (USD)</label><input class="inp" type="number" id="ti-valor" step="0.01" placeholder="0"></div>
       </div>
     </div>
@@ -1363,8 +1399,17 @@ Configurá los filtros y hacé clic en "Generar lista"
     </button>
     <div class="adv-section" id="ti-adv">
       <div class="fgrid fg3" style="gap:10px">
-        <div class="field"><label class="inp-label">Storage</label><input class="inp" id="ti-stor" placeholder="128GB"></div>
-        <div class="field"><label class="inp-label">Color</label><input class="inp" id="ti-color" placeholder="Negro"></div>
+        <div class="field">
+          <label class="inp-label">Storage</label>
+          <input class="inp" id="ti-stor" placeholder="128GB" list="ti-dl-storages"
+            oninput="onTiStorageChange()" onchange="onTiStorageChange()">
+          <datalist id="ti-dl-storages"></datalist>
+        </div>
+        <div class="field">
+          <label class="inp-label">Color</label>
+          <input class="inp" id="ti-color" placeholder="Negro" list="ti-dl-colors">
+          <datalist id="ti-dl-colors"></datalist>
+        </div>
         <div class="field"><label class="inp-label">Batería %</label><input class="inp" type="number" id="ti-bat" placeholder="80"></div>
         <div class="field" style="grid-column:1/-1"><label class="inp-label">IMEI / Serial</label><input class="inp" id="ti-imei" placeholder="358..."></div>
         <div class="field" style="grid-column:1/-1"><label class="inp-label">Notas</label><textarea class="inp" id="ti-notas" rows="2"></textarea></div>
@@ -2091,13 +2136,21 @@ function saveVenta(){
   const editId=document.getElementById('v-id').value;
   const prodEl=document.getElementById('v-prod')||document.getElementById('v-prod-manual');
   const stockId=prodEl&&prodEl.tagName==='SELECT'?prodEl.value:'';
+  // Also read from cascade libre fields if populated
+  const libreModelo=document.getElementById('v-modelo-libre')?.value||'';
+  const libreStorage=document.getElementById('v-storage-libre')?.value||'';
+  const libreColor=document.getElementById('v-color-libre')?.value||'';
   const st=stock.find(x=>x.id===stockId);
   const hasTI=document.getElementById('v-ti-toggle').checked;
   const tiValor=parseFloat(document.getElementById('v-ti-valor')?.value)||0;
   const garIni=document.getElementById('v-gar-ini').value;
   const garDias=parseInt(document.getElementById('v-gar-dias').value)||30;
   let garFin='';if(garIni){const d=new Date(garIni);d.setDate(d.getDate()+garDias);garFin=d.toISOString().slice(0,10);}
-  const prodText=st?`${st.modelo} ${st.storage||''} ${st.color||''}`.trim():((prodEl&&prodEl.value)||'Producto manual');
+  const prodText=st
+    ? `${st.modelo} ${st.storage||''} ${st.color||''}`.trim()
+    : libreModelo
+      ? [libreModelo, libreStorage, libreColor].filter(Boolean).join(' ')
+      : ((prodEl&&prodEl.value&&prodEl.value!=='__manual'&&prodEl.value!==''?prodEl.value:null)||'Producto manual');
   // Auto-suggest cost from stock if not manually entered
   const manualCosto = document.getElementById('v-costo-prod')?.value;
   const productCostUsd = manualCosto!==''&&manualCosto!=null
@@ -2285,8 +2338,8 @@ function editStock(id){
 
 function saveTradein(){
   const editId=document.getElementById('ti-id').value;
-  const modelo=document.getElementById('ti-modelo').value;
-  const valor=parseFloat(document.getElementById('ti-valor').value)||0;
+  const modelo=(document.getElementById('ti-modelo')?.value||'').trim();
+  const valor=parseFloat(document.getElementById('ti-valor')?.value)||0;
   if(!modelo){toast('⚠ Ingresá el modelo');return;}
   const t={id:editId||uid(),fecha:document.getElementById('ti-fecha').value||today(),cli:document.getElementById('ti-cli').value,modelo,stor:document.getElementById('ti-stor').value,color:document.getElementById('ti-color').value,bat:parseInt(document.getElementById('ti-bat').value)||null,imei:document.getElementById('ti-imei').value,valor,ventaRef:'',notas:document.getElementById('ti-notas').value};
   if(editId){const i=tradeins.findIndex(x=>x.id===editId);if(i>=0)tradeins[i]=t;}
@@ -4346,7 +4399,109 @@ const IPHONE_DB = {
 const IPHONE_ORDER = Object.keys(IPHONE_DB);
 
 // ════════════════════════════════════════
-// SMART DROPDOWNS — model/storage/color
+// CASCADING DROPDOWNS - Venta, Stock, Tradein
+// All three share the same IPHONE_DB source
+// ════════════════════════════════════════
+
+// ── VENTA form cascade ──────────────────
+function initVentaDropdowns() {
+  fillDatalist('v-dl-modelos', getKnownModels('iPhone'));
+  fillDatalist('v-dl-storages', []);
+  fillDatalist('v-dl-colors', []);
+  document.getElementById('v-stock-match').style.display='none';
+}
+
+function onVModelChange() {
+  const modelo = document.getElementById('v-modelo-libre')?.value || '';
+  fillDatalist('v-dl-storages', getKnownStorages(modelo));
+  fillDatalist('v-dl-colors', getKnownColors(modelo, ''));
+  // Auto-select from stock if exact match
+  matchVentaToStock();
+}
+
+function onVStorageChange() {
+  const modelo = document.getElementById('v-modelo-libre')?.value || '';
+  const storage = document.getElementById('v-storage-libre')?.value || '';
+  fillDatalist('v-dl-colors', getKnownColors(modelo, storage));
+  matchVentaToStock();
+}
+
+function matchVentaToStock() {
+  const modelo = (document.getElementById('v-modelo-libre')?.value || '').toLowerCase();
+  const storage = (document.getElementById('v-storage-libre')?.value || '').toLowerCase();
+  const color = (document.getElementById('v-color-libre')?.value || '').toLowerCase();
+  const cond = document.getElementById('v-cond-libre')?.value || '';
+  if (!modelo) return;
+  const matches = stock.filter(s => {
+    if (s.estado !== 'Disponible') return false;
+    const sm = (s.modelo||'').toLowerCase();
+    if (!sm.includes(modelo) && !modelo.includes(sm.split(' ').slice(0,2).join(' '))) return false;
+    if (storage && s.storage && !s.storage.toLowerCase().includes(storage)) return false;
+    if (color && s.color && !s.color.toLowerCase().includes(color)) return false;
+    if (cond && s.cond !== cond) return false;
+    return true;
+  });
+  const matchEl = document.getElementById('v-stock-match');
+  const prodSel = document.getElementById('v-prod');
+  if (!matchEl) return;
+  if (matches.length === 1) {
+    // Auto-select the single match in the stock dropdown
+    if (prodSel) prodSel.value = matches[0].id;
+    onVProdChange();
+    matchEl.textContent = `✓ Encontrado en stock: ${matches[0].modelo} ${matches[0].storage||''} ${matches[0].color||''} — $${matches[0].precio}`;
+    matchEl.style.display = 'block';
+    matchEl.style.color = 'var(--g)';
+  } else if (matches.length > 1) {
+    matchEl.textContent = `${matches.length} coincidencias en stock — seleccioná más detalles`;
+    matchEl.style.display = 'block';
+    matchEl.style.color = 'var(--a)';
+    // Populate stock dropdown with just these matches
+    if (prodSel) {
+      prodSel.innerHTML = '<option value="">— Seleccioná —</option>';
+      matches.forEach(s => {
+        const o = document.createElement('option');
+        o.value = s.id;
+        o.textContent = `${s.modelo} ${s.storage||''} ${s.color||''} · $${s.precio}`;
+        prodSel.appendChild(o);
+      });
+      prodSel.insertAdjacentHTML('beforeend', '<option value="__manual">+ Sin stock (venta manual)</option>');
+    }
+  } else {
+    matchEl.textContent = matches.length === 0 && modelo.length > 3 ? '⚠ No hay stock disponible — se creará compra pendiente' : '';
+    matchEl.style.display = matches.length === 0 && modelo.length > 3 ? 'block' : 'none';
+    if (matches.length === 0 && modelo.length > 3) matchEl.style.color = 'var(--a)';
+  }
+}
+
+// ── TRADEIN form cascade ──────────────────
+function initTradeinDropdowns() {
+  fillDatalist('ti-dl-modelos', getKnownModels('iPhone'));
+  fillDatalist('ti-dl-storages', []);
+  fillDatalist('ti-dl-colors', []);
+}
+
+function onTiModelChange() {
+  const modelo = document.getElementById('ti-modelo')?.value || '';
+  fillDatalist('ti-dl-storages', getKnownStorages(modelo));
+  fillDatalist('ti-dl-colors', getKnownColors(modelo, ''));
+  // Open adv section if model typed
+  if (modelo.length > 3) {
+    const adv = document.getElementById('ti-adv');
+    const arr = document.getElementById('ti-adv-arrow');
+    if (adv && !adv.classList.contains('open')) {
+      adv.classList.add('open');
+      if (arr) arr.classList.add('open');
+    }
+  }
+}
+
+function onTiStorageChange() {
+  const modelo = document.getElementById('ti-modelo')?.value || '';
+  const storage = document.getElementById('ti-stor')?.value || '';
+  fillDatalist('ti-dl-colors', getKnownColors(modelo, storage));
+}
+
+
 // merges static DB with live supplier data
 // ════════════════════════════════════════
 
@@ -4599,12 +4754,25 @@ openDrawer = function(type) {
   _origOpenDrawer(type);
   if (type === 'stock') {
     setTimeout(initStockDropdowns, 60);
-    // Wire cat change
     const catEl = document.getElementById('s-cat');
     if (catEl && !catEl._ddWired) {
       catEl._ddWired = true;
       catEl.addEventListener('change', onStockCatChange);
     }
+  }
+  if (type === 'venta') {
+    setTimeout(()=>{
+      initVentaDropdowns();
+      // Also clear libre fields
+      ['v-modelo-libre','v-storage-libre','v-color-libre'].forEach(id=>{
+        const el=document.getElementById(id); if(el) el.value='';
+      });
+      const condEl=document.getElementById('v-cond-libre'); if(condEl) condEl.value='';
+      const matchEl=document.getElementById('v-stock-match'); if(matchEl) matchEl.style.display='none';
+    }, 60);
+  }
+  if (type === 'tradein') {
+    setTimeout(initTradeinDropdowns, 60);
   }
 };
 
