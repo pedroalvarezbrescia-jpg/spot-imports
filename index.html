@@ -4086,21 +4086,27 @@ function completePurchase(id) {
   stock.unshift(newItem);
   // Update linked sale with real cost
   const venta = ventas.find(v=>v.id===pn.saleId);
-  if(venta){venta.costoPendiente=false;dbUpsert('ventas',venta);}
+  if(venta){venta.costoPendiente=false;venta.productCostUsd=costoReal;dbUpsert('ventas',venta);}
+  // Remove from pending list (bought = done)
+  const pnIdx = purchaseNeeds.findIndex(x=>x.id===id);
+  if(pnIdx>=0) purchaseNeeds.splice(pnIdx,1);
   refreshUI(['compras','rapido','stock','ventas']);
   updateComprasBadge();
   dbUpsert('purchase_needs',pn);
   dbUpsert('stock',newItem);
-  toast(`✓ Compra completada — margen real: $${pn.salePrecio-costoReal} (${Math.round((pn.salePrecio-costoReal)/pn.salePrecio*100)}%)`);
+  toast(`✓ Comprado — margen: $${pn.salePrecio-costoReal} (${Math.round((pn.salePrecio-costoReal)/pn.salePrecio*100)}%)`);
 }
 
 function cancelPurchase(id) {
-  const pn = purchaseNeeds.find(x=>x.id===id);
-  if(!pn) return;
-  pn.estado='cancelado';
-  renderCompras();
+  // Also remove from list when cancelled
+  const idx = purchaseNeeds.findIndex(x=>x.id===id);
+  if(idx>=0){
+    const pn = purchaseNeeds[idx];
+    dbUpsert('purchase_needs',{...pn,estado:'cancelado'});
+    purchaseNeeds.splice(idx,1);
+  }
+  refreshUI(['compras','rapido']);
   updateComprasBadge();
-  dbUpsert('purchase_needs',pn);
 }
 
 function openAddPurchaseNeed() {
