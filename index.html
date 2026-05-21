@@ -1679,7 +1679,8 @@ function renderDash(){
   if(alertsWrap) alertsWrap.innerHTML=
     deudasAlerts.join('')+
     (low.length?`<div class="alert alert-red"><span>⚠</span> Stock bajo: ${low.map(a=>a.tipo+' ('+a.qty+')').join(', ')}</div>`:'');
-  document.getElementById('dash-recent').innerHTML=ventas.slice(0,6).map(v=>`
+  const recentVentas=ventas.slice(0,8);
+  document.getElementById('dash-recent').innerHTML=recentVentas.map(v=>`
     <div class="recent-row" onclick="go('ventas',null)">
       <div class="rr-left">
         <div class="rr-prod">${v.producto}</div>
@@ -2236,10 +2237,34 @@ function saveVenta(){
       stock.unshift(tiStock);
       tradeins.unshift({id:uid(),fecha:today(),cli:obj.cliente,modelo:obj.tiModelo,stor:obj.tiStor,color:obj.tiColor,bat:obj.tiBat,imei:obj.tiImei,valor:tiValor,ventaRef:obj.producto,notas:''});
     }
+
+    // ── 6. Auto-create entrega pendiente (always, no confirm) ──
+    if(obj.estado!=='Entregado'){
+      const isPhone=isIPhoneProduct({modelo:obj.producto,cat:st?.cat});
+      const modelBase=normalizeIPhoneModel(obj.producto)||obj.producto;
+      const newDel={
+        id:uid(),
+        linkedSaleId:obj.id,linkedPurchaseNeedId:'',
+        brand:'Apple',category:st?.cat||guessCategory(obj.producto),
+        model:obj.producto,storage:st?.storage||libreStorage||'',
+        color:st?.color||libreColor||'',
+        productLabel:obj.producto,modelBase,
+        clientName:obj.cliente||'',clientPhone:'',
+        estimatedDate:obj.fecha||today(),estimatedTime:'',
+        zone:obj.zona||'',deliveryMethod:'moto',
+        seller:obj.vendedor||'Pedro',
+        status:'pendiente',
+        includesCase:isPhone,includesGlass:isPhone,includesExtraCable:false,
+        notes:'',createdAt:today(),deliveredAt:null,
+      };
+      pendingDeliveries.unshift(newDel);
+      // DB sync delivery in background
+      Promise.resolve().then(()=>dbUpsert('pending_deliveries',newDel));
+    }
   }
 
-  // ── 6. Instant UI refresh ──
-  refreshUI(['ventas','rapido','stock','flujo','reportes']);
+  // ── 7. Instant UI refresh — always render ventas + dash ──
+  refreshUI(['ventas','rapido','stock','flujo','reportes','entregas']);
   updateEntBadge(); updateComprasBadge(); updateAccBadge();
   toast(editId?'✓ Venta actualizada':'✓ Venta registrada');
 
@@ -2253,17 +2278,6 @@ function saveVenta(){
     const newAccs=saleAccesorios.filter(a=>a.saleId===obj.id);
     for(const a of newAccs) await dbUpsert('sale_accessories',a);
   });
-
-  // ── Offer delivery (non-blocking) ──
-  if(!editId&&obj.estado!=='Entregado'){
-    setTimeout(()=>{
-      const createDel=confirm('¿Crear entrega pendiente para esta venta?');
-      if(createDel){
-        const isPhone=isIPhoneProduct({modelo:obj.producto});
-        openDeliveryDrawer({client:obj.cliente,productLabel:obj.producto,includesCase:isPhone,includesGlass:isPhone,zone:obj.zona||''});
-      }
-    },150);
-  }
 }
 
 function editVenta(id){
