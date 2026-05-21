@@ -272,6 +272,17 @@ input:checked+.toggle-slider:before{transform:translateX(16px)}
 /* Search input */
 .search-inp{background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:7px 11px;font-family:var(--fn);font-size:12px;color:var(--ink);outline:none;transition:border .1s}
 .search-inp:focus{border-color:var(--ink3)}
+/* Alert banners */
+.alert{display:flex;align-items:center;gap:8px;padding:9px 13px;border-radius:8px;font-size:12px;font-weight:500;margin-bottom:6px;line-height:1.4}
+.alert-amber{background:var(--a-bg);color:var(--a);border:1px solid #e8d890}
+.alert-red{background:var(--r-bg);color:var(--r);border:1px solid #f0c0b8}
+.alert-green{background:var(--g-bg);color:var(--g);border:1px solid #b8e8c8}
+/* metric card (deudas uses .metric, rest use .mcard — unify) */
+.metric{background:var(--white);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+.metric-label{font-size:10px;font-weight:600;color:var(--ink3);letter-spacing:.5px;text-transform:uppercase;margin-bottom:6px}
+.metric-val{font-size:26px;font-weight:400;font-family:var(--serif);letter-spacing:-.5px;line-height:1}
+.metric-val.green{color:var(--g)}.metric-val.red{color:var(--r)}.metric-val.amber{color:var(--a)}
+.metric-sub{font-size:10px;color:var(--ink3);margin-top:4px;font-family:var(--mono)}
 /* datalist inputs look like selects with autocomplete */
 input[list].inp::-webkit-calendar-picker-indicator { opacity: 0.5; cursor: pointer; }
 /* cuotas preview */
@@ -594,6 +605,7 @@ input[list].inp::-webkit-calendar-picker-indicator { opacity: 0.5; cursor: point
       </div>
 
       <div class="metric-strip" id="dash-metrics"></div>
+      <div id="dash-alerts" style="margin-top:8px"></div>
 
       <div class="recent-title">VENTAS RECIENTES</div>
       <div id="dash-recent"></div>
@@ -4031,12 +4043,12 @@ function bestSupplierFor(producto) {
 // ════════════════════════════════════════
 function renderCompras() {
   const pending = purchaseNeeds.filter(p=>p.estado==='pendiente');
-  const done    = purchaseNeeds.filter(p=>p.estado==='comprado');
+  const done = []; // Removed items are gone — count shown as active items
   const totalEst = pending.reduce((s,p)=>s+(p.costoEst||0),0);
   document.getElementById('compras-metrics').innerHTML=`
     <div class="mcard"><div class="mcard-label">Pendientes</div><div class="mcard-val amber">${pending.length}</div><div class="mcard-sub">por comprar</div></div>
     <div class="mcard"><div class="mcard-label">Costo estimado</div><div class="mcard-val">${totalEst?'$'+totalEst.toLocaleString():'—'}</div><div class="mcard-sub">USD total</div></div>
-    <div class="mcard"><div class="mcard-label">Completadas</div><div class="mcard-val green">${done.length}</div><div class="mcard-sub">este mes</div></div>`;
+    <div class="mcard"><div class="mcard-label">Productos a buscar</div><div class="mcard-val green">${purchaseNeeds.length}</div><div class="mcard-sub">en lista</div></div>`;
 
   const tbody = document.getElementById('compras-tbody');
   if(!tbody) return;
@@ -5057,9 +5069,16 @@ async function bootApp() {
   showSyncBar(currentUser);
   setSyncStatus('syncing');
   await loadAllFromDB();
+  normalizeLegacyData();
   startPolling();
   setSyncStatus('live');
-  renderDash(); updateAccBadge(); updateEntBadge(); updateIABadge();
+  renderDash();
+  try { updateAccBadge(); } catch(e) {}
+  try { updateEntBadge(); } catch(e) {}
+  try { updateIABadge(); } catch(e) {}
+  try { updateComprasBadge(); } catch(e) {}
+  try { updateDeudasBadge(); } catch(e) {}
+  try { renderIPhoneAccessories(); } catch(e) {}
 }
 
 function bootLocalMode() {
