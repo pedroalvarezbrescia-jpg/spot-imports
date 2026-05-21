@@ -2238,13 +2238,9 @@ function saveVenta(){
     }
   }
 
-  // ── 6. Instant UI refresh (only active page) ──
-  const active=document.querySelector('.page.active')?.id;
-  if(active==='pg-ventas')renderVentas();
-  else if(active==='pg-rapido')renderDash();
-  else if(active==='pg-stock')renderStock();
-  updateEntBadge();
-
+  // ── 6. Instant UI refresh ──
+  refreshUI(['ventas','rapido','stock','flujo','reportes']);
+  updateEntBadge(); updateComprasBadge(); updateAccBadge();
   toast(editId?'✓ Venta actualizada':'✓ Venta registrada');
 
   // ── DB sync (non-blocking, background) ──
@@ -2317,8 +2313,7 @@ function saveStock(){
   if(editId){const i=stock.findIndex(x=>x.id===editId);if(i>=0)stock[i]={...stock[i],...obj};}
   else stock.unshift(obj);
   closeDrawer('stock');toast(editId?'✓ Producto actualizado':'✓ Producto agregado al stock');
-  if(document.getElementById('pg-stock').classList.contains('active'))renderStock();
-  if(document.getElementById('pg-rapido').classList.contains('active'))renderDash();
+  refreshUI(['stock','rapido','precios','reportes']);
 }
 
 function editStock(id){
@@ -2348,7 +2343,7 @@ function saveTradein(){
     stock.unshift({id:uid(),cat:'iPhone',modelo,storage:t.stor,color:t.color,cond:'Usado',bat:t.bat,imei:t.imei,costo:valor,precio:Math.round(valor*1.3),prov:'Trade-in'+(t.cli?' ('+t.cli+')':''),fecha:t.fecha,estado:'Disponible',gar:30,notas:t.notas,origin:'tradein'});
   }
   closeDrawer('tradein');toast('✓ Parte de pago registrada y agregada al stock');
-  if(document.getElementById('pg-tradein').classList.contains('active'))renderTradein();
+  refreshUI(['tradein','stock','rapido']);
 }
 
 function saveGasto(){
@@ -2359,7 +2354,7 @@ function saveGasto(){
   if(editId){const i=gastos.findIndex(x=>x.id===editId);if(i>=0)gastos[i]=obj;}
   else gastos.unshift(obj);
   closeDrawer('gasto');toast('✓ Gasto registrado');
-  if(document.getElementById('pg-gastos').classList.contains('active'))renderGastos();
+  refreshUI(['gastos','rapido','flujo','reportes']);
 }
 function editGasto(id){
   const g=gastos.find(x=>x.id===id);if(!g)return;
@@ -4078,8 +4073,7 @@ function completePurchase(id) {
   // Update linked sale with real cost
   const venta = ventas.find(v=>v.id===pn.saleId);
   if(venta){venta.costoPendiente=false;dbUpsert('ventas',venta);}
-  renderCompras();
-  renderDash();
+  refreshUI(['compras','rapido','stock','ventas']);
   updateComprasBadge();
   dbUpsert('purchase_needs',pn);
   dbUpsert('stock',newItem);
@@ -4315,7 +4309,7 @@ function savePendingTradein() {
   if(id){const i=pendingTradein.findIndex(x=>x.id===id);if(i>=0)pendingTradein[i]=obj;}
   else pendingTradein.unshift(obj);
   closeDrawer('pending-tradein');
-  renderDeudas(); updateDeudasBadge();
+  refreshUI(['deudas','rapido']); updateDeudasBadge();
   dbUpsert('pending_tradein', obj);
   toast('✓ Celular pendiente registrado');
 }
