@@ -1901,7 +1901,8 @@ function saveAccMov(){
   const a=accesorios.find(x=>x.tipo===tipo);if(!a)return;
   if(dir==='out'&&a.qty<qty){toast('⚠ Sin stock suficiente');return;}
   if(dir==='in'){a.qty+=qty;if(cost)a.cost=cost;a.ultima=today();}else a.qty-=qty;
-  renderAccesorios();toast(`✓ Movimiento guardado`);
+  renderAccesorios();toast('✓ Movimiento guardado');
+  dbUpsert('accesorios',a);
 }
 function updateAccBadge(){
   const low=accesorios.filter(a=>a.qty<a.min).length;
@@ -2032,6 +2033,7 @@ function openDrawer(type){
     const vmp=document.getElementById('v-margin-preview');if(vmp)vmp.style.display='none';
     document.getElementById('v-gar-ini').value=today();
     document.getElementById('v-gar-dias').value=30;
+    document.getElementById('v-estado').value='Vendido';
     calcGarantia();
     // close adv
     document.getElementById('v-adv').classList.remove('open');
@@ -2063,6 +2065,9 @@ function openDrawer(type){
     document.getElementById('g-monto').value='';document.getElementById('g-desc').value='';
     document.getElementById('g-fecha').value=today();document.getElementById('g-notas').value='';
     document.getElementById('g-adv').classList.remove('open');document.getElementById('g-adv-arrow').classList.remove('open');
+    const mktReset=document.getElementById('g-es-mkt');if(mktReset)mktReset.checked=false;
+    const gvReset2=document.getElementById('g-gen-venta');if(gvReset2)gvReset2.checked=false;
+    const gvWrap2=document.getElementById('g-gen-venta-wrap');if(gvWrap2)gvWrap2.style.display='none';
   }
   document.getElementById('drawer-'+type).classList.add('open');
   // Focus first meaningful input
@@ -2301,6 +2306,10 @@ function editVenta(id){
     document.getElementById('v-prod').value=v.stockId||'';
     document.getElementById('v-precio').value=v.precio;
     document.getElementById('v-metodo').value=v.metodo;onMetodoChange();
+    if(v.metodo==='Mixto'){
+      const usdEl=document.getElementById('v-usd');if(usdEl)usdEl.value=v.montousd||'';
+      const arsEl=document.getElementById('v-ars');if(arsEl)arsEl.value=v.montoars||'';
+    }
     document.getElementById('v-vendedor').value=v.vendedor;
     document.getElementById('v-estado').value=v.estado;
     document.getElementById('v-cliente').value=v.cliente||'';
@@ -2340,6 +2349,7 @@ function saveStock(){
   else stock.unshift(obj);
   closeDrawer('stock');toast(editId?'✓ Producto actualizado':'✓ Producto agregado al stock');
   refreshUI(['stock','rapido','precios','reportes']);
+  Promise.resolve().then(()=>dbUpsert('stock', editId?stock.find(x=>x.id===editId):stock[0]));
 }
 
 function editStock(id){
@@ -2370,6 +2380,10 @@ function saveTradein(){
   }
   closeDrawer('tradein');toast('✓ Parte de pago registrada y agregada al stock');
   refreshUI(['tradein','stock','rapido']);
+  Promise.resolve().then(async()=>{
+    if(tradeins[0]) await dbUpsert('tradeins', tradeins[0]);
+    if(stock[0]?.origin==='tradein') await dbUpsert('stock', stock[0]);
+  });
 }
 
 function saveGasto(){
@@ -2381,6 +2395,7 @@ function saveGasto(){
   else gastos.unshift(obj);
   closeDrawer('gasto');toast('✓ Gasto registrado');
   refreshUI(['gastos','rapido','flujo','reportes']);
+  Promise.resolve().then(()=>dbUpsert('gastos', editId?gastos.find(x=>x.id===editId):gastos[0]));
 }
 function editGasto(id){
   const g=gastos.find(x=>x.id===id);if(!g)return;
@@ -2404,11 +2419,14 @@ function delItem(store,id){
   document.getElementById('c-ok').onclick=()=>{
     const stores={stock,ventas,gastos,tradeins};
     const arr=stores[store];if(!arr)return;
-    const i=arr.findIndex(x=>x.id===id);if(i>=0)arr.splice(i,1);
+    const pk=TABLE_MAP[store]?.pk||'id';
+    const i=arr.findIndex(x=>x[pk]===id);if(i>=0)arr.splice(i,1);
     closeConfirm();toast('Eliminado');
-    const r={stock:renderStock,ventas:renderVentas,gastos:renderGastos,tradeins:renderTradein};
-    if(r[store])r[store]();
-    if(document.getElementById('pg-rapido').classList.contains('active'))renderDash();
+    // Sync deletion to DB
+    dbDelete(store,pk,id);
+    // Refresh UI
+    const pageMap={stock:'stock',ventas:'ventas',gastos:'gastos',tradeins:'tradein'};
+    refreshUI([pageMap[store]||store,'rapido','flujo','reportes']);
   };
   document.getElementById('confirm-overlay').classList.add('open');
 }
@@ -2860,8 +2878,15 @@ function updateEntBadge() {
 function renderIPhoneAccessories() {
   const models = getAllIPhoneModels();
   // Ensure all known models have a row
-  models.forEach(m=>{if(!iPhoneAccByModel.find(r=>r.modelBase===m))
-    iPhoneAccByModel.push({id:uid(),modelBase:m,casesQty:0,casesMin:2,glassQty:0,glassMin:2,updatedAt:today()});
+  // Add missing models without duplicating (use a Set of existing names)
+  const existingModels=new Set(iPhoneAccByModel.map(r=>r.modelBase));
+  models.forEach(m=>{
+    if(!existingModels.has(m)){
+      const newRow={id:uid(),modelBase:m,casesQty:0,casesMin:2,glassQty:0,glassMin:2,updatedAt:today()};
+      iPhoneAccByModel.push(newRow);
+      existingModels.add(m);
+      dbUpsert('iphone_acc_by_model',newRow);
+    }
   });
   const tbody=document.getElementById('iphone-acc-tbody');
   if(!tbody) return;
@@ -3696,12 +3721,14 @@ function saveLead() {
   renderLeads();
   updateIABadge();
   toast(id ? '✓ Lead actualizado' : '✓ Lead agregado');
+  if(leads[0]) dbUpsert('leads', leads[0]);
 }
 function delLead(id) {
   const i = leads.findIndex(x => x.id === id);
   if (i >= 0) leads.splice(i, 1);
   renderLeads();
   toast('Lead eliminado');
+  dbDelete('leads','id',id);
 }
 function closeLead() { document.getElementById('lead-modal').classList.remove('open'); }
 
@@ -4293,7 +4320,8 @@ function markDeuda(store, id, nuevoEstado) {
   const arr = store==='cobros'?cobros:pagos;
   const x = arr.find(a=>a.id===id); if(!x)return;
   x.estado=nuevoEstado;
-  renderDeudas(); updateDeudasBadge();
+  refreshUI(['deudas','rapido']);
+  updateDeudasBadge();
   dbUpsert(store, x);
   toast(`✓ Marcado como ${nuevoEstado}`);
 }
@@ -4950,7 +4978,16 @@ const TABLE_MAP = {
   ventas:           { get: ()=>ventas,           set: v=>{ventas=v;},           pk:'id' },
   tradeins:         { get: ()=>tradeins,         set: v=>{tradeins=v;},         pk:'id' },
   gastos:           { get: ()=>gastos,           set: v=>{gastos=v;},           pk:'id' },
-  accesorios:       { get: ()=>accesorios,       set: v=>{accesorios=v;},       pk:'tipo' },
+  accesorios:       { get: ()=>accesorios,       set: v=>{
+    // Merge DB data into local defaults (don't replace local if DB is empty)
+    if(v&&v.length){
+      v.forEach(dbRow=>{
+        const local=accesorios.find(a=>a.tipo===dbRow.tipo);
+        if(local){Object.assign(local,dbRow);}
+        else{accesorios.push(dbRow);}
+      });
+    }
+  }, pk:'tipo' },
   clientes:         { get: ()=>clientes,         set: v=>{clientes=v;},         pk:'id' },
   proveedores:      { get: ()=>proveedores,      set: v=>{proveedores=v;},      pk:'id' },
   leads:            { get: ()=>leads,            set: v=>{leads=v;},            pk:'id' },
